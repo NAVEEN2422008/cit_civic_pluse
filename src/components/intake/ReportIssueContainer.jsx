@@ -1,15 +1,14 @@
 import React, { useState } from 'react';
-import { Camera, FileText, Mic, MapPin, CheckCircle2, AlertCircle, ArrowLeft, ArrowRight, Sparkles } from 'lucide-react';
+import { Camera, FileText, MapPin, CheckCircle2, AlertCircle, ArrowLeft, ArrowRight, Sparkles } from 'lucide-react';
 import PhotoCaptureStep from './PhotoCaptureStep';
 import MultilingualTextStep from './MultilingualTextStep';
-import VoiceRecordStep from './VoiceRecordStep';
 import LocationPickerStep from './LocationPickerStep';
 import ReviewSubmitStep from './ReviewSubmitStep';
 import { apiService } from '../../utils/apiService';
 import { syncEngine } from '../../utils/syncEngine';
 
 export default function ReportIssueContainer({ userAuth, onComplaintCreated }) {
-  const [step, setStep] = useState(1); // 1: Photo, 2: Text, 3: Voice, 4: Location, 5: Review
+  const [step, setStep] = useState(1); // 1: Photo, 2: Description & Voice Box, 3: Location, 4: Review
   
   // Intake state
   const [photoUrl, setPhotoUrl] = useState('');
@@ -24,7 +23,6 @@ export default function ReportIssueContainer({ userAuth, onComplaintCreated }) {
     ward: '',
     source: 'GPS'
   });
-  const [isLocationConfirmed, setIsLocationConfirmed] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState(null);
@@ -80,7 +78,7 @@ export default function ReportIssueContainer({ userAuth, onComplaintCreated }) {
         const offlineRecord = await syncEngine.enqueueOfflineComplaint(issuePayload);
         setFeedback({
           type: 'warning',
-          text: `Offline — your complaint has been saved locally. It will upload automatically when connectivity returns.`
+          text: `Offline — your complaint has been saved locally with status VOICE_PENDING_PROCESSING. It will upload and process automatically when connectivity returns.`
         });
         
         if (onComplaintCreated) {
@@ -133,14 +131,13 @@ export default function ReportIssueContainer({ userAuth, onComplaintCreated }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <div>
             <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary)' }}>
-              CITIZEN INTAKE WIZARD (STEP {step} OF 5)
+              CITIZEN INTAKE WIZARD (STEP {step} OF 4)
             </span>
             <h2 style={{ fontSize: '1.3rem', fontWeight: 800 }}>
               {step === 1 && 'Capture Defect Photo'}
-              {step === 2 && 'Regional Text Description'}
-              {step === 3 && 'Sarvam Voice Intake'}
-              {step === 4 && 'GPS & Satellite Location Verification'}
-              {step === 5 && 'Review & Final Submission'}
+              {step === 2 && 'Integrated Text & Voice Description'}
+              {step === 3 && 'GPS & Satellite Location Verification'}
+              {step === 4 && 'Review & Final Submission'}
             </h2>
           </div>
 
@@ -151,7 +148,7 @@ export default function ReportIssueContainer({ userAuth, onComplaintCreated }) {
 
         {/* Step Progress Bar */}
         <div style={{ display: 'flex', gap: '6px' }}>
-          {[1, 2, 3, 4, 5].map((s) => (
+          {[1, 2, 3, 4].map((s) => (
             <div
               key={s}
               onClick={() => setStep(s)}
@@ -197,26 +194,20 @@ export default function ReportIssueContainer({ userAuth, onComplaintCreated }) {
           setDescription={setDescription}
           language={language}
           setLanguage={setLanguage}
+          voiceData={voiceData}
+          setVoiceData={setVoiceData}
         />
       )}
 
       {step === 3 && (
-        <VoiceRecordStep
-          voiceData={voiceData}
-          setVoiceData={setVoiceData}
-          language={language}
+        <LocationPickerStep
+          locationData={locationData}
+          setLocationData={setLocationData}
+          onComplete={() => setStep(4)}
         />
       )}
 
       {step === 4 && (
-        <LocationPickerStep
-          locationData={locationData}
-          setLocationData={setLocationData}
-          onComplete={() => setStep(5)}
-        />
-      )}
-
-      {step === 5 && (
         <ReviewSubmitStep
           photoUrl={photoUrl}
           description={description}
@@ -242,7 +233,7 @@ export default function ReportIssueContainer({ userAuth, onComplaintCreated }) {
           <span>Back</span>
         </button>
 
-        {step < 5 ? (
+        {step < 4 ? (
           <button
             type="button"
             onClick={() => setStep(prev => prev + 1)}
