@@ -331,7 +331,7 @@ export default function App() {
             )}
 
             {activeRole === 'ADMIN' && (
-              <AdminDashboard />
+              <AdminDashboard complaints={complaints} lang={lang} />
             )}
           </>
         )}

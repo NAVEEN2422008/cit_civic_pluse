@@ -3,7 +3,7 @@ import { Layers, Flame, AlertCircle, TrendingUp, CheckCircle, ZoomIn, ZoomOut, M
 import { TN_DEPARTMENTS, ESCALATION_LEVELS } from '../mockData';
 import CivicHeatmapView from './citizen/CivicHeatmapView';
 
-export default function AdminDashboard({ lang, complaints }) {
+export default function AdminDashboard({ lang, complaints = [] }) {
   const [selectedDept, setSelectedDept] = useState('ALL');
 
   // Metric counts
