@@ -1,389 +1,568 @@
-import React, { useState } from 'react';
-import { Clock, ShieldAlert, CheckCircle, Upload, FastForward, RotateCcw, Camera, FileText, UserCheck, AlertCircle, ArrowRight, Eye, Image as ImageIcon } from 'lucide-react';
-import { TN_DEPARTMENTS, ESCALATION_LEVELS } from '../mockData';
+import React, { useState, useEffect } from 'react';
+import { 
+  Clock, ShieldAlert, CheckCircle, Upload, Camera, FileText, UserCheck, 
+  AlertCircle, ArrowRight, Eye, DollarSign, Hammer, ClipboardList, Map, 
+  CheckSquare, Activity, AlertTriangle, Layers, UserX
+} from 'lucide-react';
+import CivicHeatmapView from './citizen/CivicHeatmapView';
+import { apiService } from '../utils/apiService';
 
 export default function OfficerPortal({ lang, complaints, setComplaints }) {
+  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'assigned' | 'inspections' | 'work_orders' | 'approvals' | 'map'
   const [selectedDept, setSelectedDept] = useState('ALL');
   const [selectedComplaint, setSelectedComplaint] = useState(null);
   
-  // Officer Proof Submission Form State
-  const [afterPhoto, setAfterPhoto] = useState('');
-  const [workNotes, setWorkNotes] = useState('');
-  const [contractorName, setContractorName] = useState('TN Highways Repair Unit 4');
-  const [costEstimate, setCostEstimate] = useState('₹12,500');
+  // Active Action Modal inside Detail
+  const [activeModal, setActiveModal] = useState(null); // null | 'inspection' | 'budget' | 'work_order' | 'evidence'
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  // Filtered list based on selected department
+  // Form States
+  const [inspectionData, setInspectionData] = useState({
+    problem_condition: 'Severe asphalt erosion with water logging',
+    severity: 'HIGH',
+    dimensions: '2.5m x 1.2m x 0.15m',
+    safety_risk: 'MEDIUM',
+    required_materials: 'Cold-mix asphalt, crushed aggregate stone',
+    required_manpower: 3,
+    preliminary_estimate: 25000,
+    inspection_notes: 'Inspected on site. High risk to two-wheelers during monsoon rains.',
+    recommended_action: 'Immediate resurfacing & asphalt leveling'
+  });
+
+  const [budgetData, setBudgetData] = useState({
+    estimated_cost: 25000,
+    reason: 'Requires special cold-mix bitumen & road roller hire.'
+  });
+
+  const [workOrderData, setWorkOrderData] = useState({
+    work_description: 'Resurface damaged road patch with cold-mix asphalt.',
+    materials: 'Bitumen emulsion, aggregate base',
+    manpower: 4,
+    estimated_cost: 25000,
+    assigned_team: 'internal_field_team',
+    deadline_days: 3,
+    priority: 'HIGH'
+  });
+
+  const [evidenceData, setEvidenceData] = useState({
+    after_photo_url: 'https://images.unsplash.com/photo-1517649763962-0c623266010b?auto=format&fit=crop&w=600&q=80',
+    completion_notes: 'Asphalt repair completed, compacted, and traffic restored.',
+    completion_latitude: 13.0827,
+    completion_longitude: 80.2707
+  });
+
+  // Filtered list based on department selection
   const filteredComplaints = selectedDept === 'ALL'
     ? complaints
     : complaints.filter(c => c.department === selectedDept);
 
-  const handleFastForwardSLA = (complaintId) => {
-    setComplaints(prev => prev.map(comp => {
-      if (comp.id === complaintId) {
-        const nextLevel = Math.min(5, comp.escalationLevel + 1);
-        const nextLevelInfo = ESCALATION_LEVELS.find(l => l.level === nextLevel);
-
-        return {
-          ...comp,
-          escalationLevel: nextLevel,
-          slaExpiresAt: new Date(Date.now() - 1000).toISOString(),
-          history: [
-            ...comp.history,
-            {
-              step: `SLA Fast-Forward Escalation (Level ${nextLevel})`,
-              note: `Fast-forward trigger: SLA Breached! Auto-Escalated to ${nextLevelInfo.titleEn}`,
-              timestamp: new Date().toISOString()
-            }
-          ]
-        };
-      }
-      return comp;
-    }));
+  // Summary Metrics
+  const summaryMetrics = {
+    new_assignments: filteredComplaints.filter(c => c.status === 'OPEN' || c.status === 'ASSIGNED').length,
+    high_priority: filteredComplaints.filter(c => c.priority === 'HIGH' || c.priority === 'CRITICAL').length,
+    in_progress: filteredComplaints.filter(c => c.status === 'IN_PROGRESS' || c.workflow_state === 'IN_PROGRESS').length,
+    sla_nearing: filteredComplaints.filter(c => c.slaDaysRemaining <= 2).length,
+    overdue: filteredComplaints.filter(c => c.slaDaysRemaining <= 0).length,
+    completed: filteredComplaints.filter(c => c.status === 'PENDING_CONFIRMATION' || c.status === 'RESOLVED').length
   };
 
-  const handleResolveComplaint = (e) => {
+  const handleAcceptTask = (complaintId) => {
+    setComplaints(prev => prev.map(c => c.id === complaintId ? { ...c, status: 'ACCEPTED', workflow_state: 'ACCEPTED' } : c));
+    alert(`Task ${complaintId} Accepted! Status updated to ACCEPTED.`);
+  };
+
+  const handleSubmitInspection = (e) => {
     e.preventDefault();
     if (!selectedComplaint) return;
-
-    const resolutionPhoto = afterPhoto || "https://images.unsplash.com/photo-1517649763962-0c623266010b?auto=format&fit=crop&w=600&q=80";
-    const now = new Date().toISOString();
-
-    setComplaints(prev => prev.map(comp => {
-      if (comp.id === selectedComplaint.id) {
-        return {
-          ...comp,
-          status: 'PENDING_CONFIRMATION',
-          afterPhotoUrl: resolutionPhoto,
-          workNotes: workNotes || (lang === 'ta' ? 'பழுதுநீக்கம் நிறைவடைந்தது. புதிய தார் பூசப்பட்டது.' : 'Pothole filled with cold-mix asphalt and leveled.'),
-          contractorName,
-          costEstimate,
-          officerName: 'Thiru. K. Arumugam (Assistant Engineer)',
-          resolvedAt: now,
-          verificationNote: "Gemini Vision AI Check Passed: 94% visual repair match with location GPS verification",
-          history: [
-            ...comp.history,
-            {
-              step: "Proof of Action Submitted",
-              note: `Officer Thiru. K. Arumugam uploaded repair photo & work notes: "${workNotes || 'Fix completed'}"`,
-              timestamp: now
-            },
-            {
-              step: "AI Resolution Verification",
-              note: "Gemini Vision AI compared Before/After photos. Verification Confidence: 94%",
-              timestamp: now
-            }
-          ]
-        };
-      }
-      return comp;
-    }));
-
-    setSelectedComplaint(null);
-    setAfterPhoto('');
-    setWorkNotes('');
+    setComplaints(prev => prev.map(c => c.id === selectedComplaint.id ? { 
+      ...c, 
+      workflow_state: 'SITE_INSPECTION',
+      estimatedCost: inspectionData.preliminary_estimate,
+      budgetStatus: inspectionData.preliminary_estimate > 20000 ? 'BUDGET_CHECK_REQUIRED' : 'BUDGET_NOT_REQUIRED'
+    } : c));
+    alert('Site Inspection Report submitted successfully!');
+    setActiveModal(null);
   };
 
-  const handleReopenComplaint = (complaintId) => {
-    setComplaints(prev => prev.map(comp => {
-      if (comp.id === complaintId) {
-        return {
-          ...comp,
-          status: 'OPEN',
-          priority: 'HIGH',
-          priorityScore: Math.min(100, comp.priorityScore + 15),
-          history: [
-            ...comp.history,
-            {
-              step: "Citizen Re-Opened Ticket",
-              note: "Citizen reported defect persists. Ticket reopened with HIGH priority penalty.",
-              timestamp: new Date().toISOString()
-            }
-          ]
-        };
-      }
-      return comp;
-    }));
+  const handleSubmitBudgetRequest = (e) => {
+    e.preventDefault();
+    if (!selectedComplaint) return;
+    setComplaints(prev => prev.map(c => c.id === selectedComplaint.id ? { 
+      ...c, 
+      workflow_state: 'APPROVAL_PENDING',
+      budgetStatus: 'AWAITING_APPROVAL',
+      estimatedCost: budgetData.estimated_cost
+    } : c));
+    alert('Funding request submitted for Supervisor review.');
+    setActiveModal(null);
+  };
+
+  const handleCreateWorkOrder = (e) => {
+    e.preventDefault();
+    if (!selectedComplaint) return;
+    setComplaints(prev => prev.map(c => c.id === selectedComplaint.id ? { 
+      ...c, 
+      workflow_state: 'WORK_ORDER_CREATED',
+      status: 'IN_PROGRESS',
+      assignedTeam: workOrderData.assigned_team
+    } : c));
+    alert('Work Order created and dispatched to field team!');
+    setActiveModal(null);
+  };
+
+  const handleSubmitEvidence = (e) => {
+    e.preventDefault();
+    if (!selectedComplaint) return;
+    setComplaints(prev => prev.map(c => c.id === selectedComplaint.id ? { 
+      ...c, 
+      workflow_state: 'WAITING_FOR_CITIZEN_VERIFICATION',
+      status: 'PENDING_CONFIRMATION',
+      afterPhotoUrl: evidenceData.after_photo_url,
+      workNotes: evidenceData.completion_notes
+    } : c));
+    alert('Resolution evidence uploaded! Ticket submitted for Citizen Verification.');
+    setActiveModal(null);
+    setSelectedComplaint(null);
   };
 
   return (
-    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '10px' }}>
-      {/* Department Filter Bar */}
-      <div className="glass-panel" style={{ padding: '14px 20px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px', overflowX: 'auto' }}>
-        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>
-          {lang === 'ta' ? 'துறை வடிகட்டி:' : 'Department Filter:'}
-        </span>
+    <div style={{ maxWidth: '1200px', margin: '0 auto', paddingBottom: '30px' }}>
+      
+      {/* Officer Workspace Header & Sub-Navigation */}
+      <div className="glass-panel" style={{ padding: '16px 20px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+        <div>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <ShieldAlert size={22} color="#f59e0b" />
+            <span>Municipal Officer Workspace</span>
+          </h2>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            Operational Portal for Assigned Department Tickets, Site Inspections & Work Orders
+          </p>
+        </div>
 
-        <button
-          onClick={() => setSelectedDept('ALL')}
-          className={`glass-btn ${selectedDept === 'ALL' ? 'glass-btn-primary' : ''}`}
-          style={{ fontSize: '0.8rem', padding: '6px 14px' }}
-        >
-          {lang === 'ta' ? 'அனைத்துத் துறைகளும்' : 'All Departments'}
-        </button>
-
-        {Object.values(TN_DEPARTMENTS).map((dept) => (
-          <button
-            key={dept.id}
-            onClick={() => setSelectedDept(dept.id)}
-            className={`glass-btn ${selectedDept === dept.id ? 'glass-btn-primary' : ''}`}
-            style={{ fontSize: '0.8rem', padding: '6px 14px', borderColor: selectedDept === dept.id ? dept.color : 'rgba(255, 255, 255, 0.15)' }}
+        {/* Sub-Nav Navigation Tabs */}
+        <div style={{ display: 'flex', gap: '6px', background: '#090d16', padding: '4px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.1)', flexWrap: 'wrap' }}>
+          <button 
+            onClick={() => { setActiveTab('dashboard'); setSelectedComplaint(null); }} 
+            className={`glass-btn ${activeTab === 'dashboard' ? 'glass-btn-primary' : ''}`}
+            style={{ fontSize: '0.78rem', padding: '6px 12px', border: 'none' }}
           >
-            {lang === 'ta' ? dept.nameTa : dept.nameEn}
+            <Activity size={14} />
+            <span>Dashboard</span>
           </button>
-        ))}
+
+          <button 
+            onClick={() => { setActiveTab('assigned'); setSelectedComplaint(null); }} 
+            className={`glass-btn ${activeTab === 'assigned' ? 'glass-btn-primary' : ''}`}
+            style={{ fontSize: '0.78rem', padding: '6px 12px', border: 'none' }}
+          >
+            <ClipboardList size={14} />
+            <span>Assigned ({filteredComplaints.length})</span>
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('map')} 
+            className={`glass-btn ${activeTab === 'map' ? 'glass-btn-primary' : ''}`}
+            style={{ fontSize: '0.78rem', padding: '6px 12px', border: 'none' }}
+          >
+            <Map size={14} />
+            <span>Satellite Map</span>
+          </button>
+        </div>
       </div>
 
-      {/* Task Queue Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '20px' }}>
-        {filteredComplaints.map((item) => {
-          const isExpired = new Date(item.slaExpiresAt) < new Date();
-          const deptInfo = TN_DEPARTMENTS[item.department] || TN_DEPARTMENTS.CORPORATION;
-          const escalationInfo = ESCALATION_LEVELS.find(l => l.level === item.escalationLevel);
-
-          return (
-            <div key={item.id} className="glass-panel" style={{ padding: '18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-              <div>
-                {/* Card Header */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: deptInfo.color, background: 'rgba(255,255,255,0.06)', padding: '3px 8px', borderRadius: '6px' }}>
-                    {item.id} • {lang === 'ta' ? deptInfo.nameTa : deptInfo.nameEn}
-                  </span>
-
-                  <span className={`badge ${item.escalationLevel > 1 ? 'badge-escalated' : item.priority === 'HIGH' ? 'badge-high' : 'badge-medium'}`}>
-                    {item.escalationLevel > 1 ? `🚨 ${lang === 'ta' ? escalationInfo.titleTa : escalationInfo.titleEn}` : item.priority}
-                  </span>
-                </div>
-
-                {/* Complaint Photo */}
-                <img
-                  src={item.photoUrl}
-                  alt="Complaint defect"
-                  style={{ width: '100%', height: '160px', objectFit: 'cover', borderRadius: '8px', marginBottom: '12px' }}
-                />
-
-                <h4 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: '6px', lineHeight: '1.3' }}>
-                  {lang === 'ta' ? item.titleTa : item.titleEn}
-                </h4>
-
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
-                  📍 {item.ward}
-                </p>
-
-                <div style={{ display: 'flex', gap: '12px', fontSize: '0.8rem', color: 'var(--text-dim)', marginBottom: '14px' }}>
-                  <span>👥 {lang === 'ta' ? `${item.reporterCount} புகார்கள் (Deduplicated)` : `${item.reporterCount} Reporters (Merged)`}</span>
-                  <span>⭐ {lang === 'ta' ? `முன்னுரிமை: ${item.priorityScore}` : `Priority Score: ${item.priorityScore}`}</span>
-                </div>
-
-                {/* SLA Timer Indicator */}
-                <div style={{
-                  padding: '8px 12px',
-                  borderRadius: '8px',
-                  background: isExpired ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
-                  border: isExpired ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(16, 185, 129, 0.4)',
-                  fontSize: '0.8rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  marginBottom: '14px',
-                  color: isExpired ? '#fca5a5' : '#6ee7b7'
-                }}>
-                  <Clock size={16} />
-                  <span>
-                    {isExpired
-                      ? (lang === 'ta' ? '🚨 SLA காலக்கெடு முடிந்தது! (தானியங்கி உயர்வு)' : '🚨 SLA Breached! (Auto Escalated)')
-                      : (lang === 'ta' ? '⏱️ SLA காலக்கெடு உள்ளது' : '⏱️ Active SLA Window')}
-                  </span>
-                </div>
-
-                {/* Display Action Proof if already submitted */}
-                {item.afterPhotoUrl && (
-                  <div style={{ padding: '10px', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: '8px', marginBottom: '14px' }}>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#10b981', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <CheckCircle size={14} />
-                      <span>{lang === 'ta' ? 'சமர்ப்பிக்கப்பட்ட பழுதுநீக்கச் சான்று:' : 'Submitted Proof of Action:'}</span>
-                    </div>
-                    <img src={item.afterPhotoUrl} alt="Action proof" style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: '6px', marginBottom: '6px' }} />
-                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                      "{item.workNotes || 'Fix completed'}"
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Action Controls */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {item.status === 'PENDING_CONFIRMATION' ? (
-                  <div>
-                    <div style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 600, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <CheckCircle size={14} />
-                      <span>{lang === 'ta' ? 'பொதுமக்கள் ஒப்புதலுக்குக் காத்திருக்கிறது' : 'Pending Citizen Confirmation'}</span>
-                    </div>
-
-                    <button
-                      onClick={() => handleReopenComplaint(item.id)}
-                      className="glass-btn glass-btn-danger"
-                      style={{ width: '100%', justifyContent: 'center', fontSize: '0.8rem' }}
-                    >
-                      <RotateCcw size={14} />
-                      <span>{lang === 'ta' ? 'குடிமகன் மீண்டும் தொடங்கினார் (Re-open)' : 'Simulate Citizen Re-Open'}</span>
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <button
-                      onClick={() => setSelectedComplaint(item)}
-                      className="glass-btn glass-btn-primary"
-                      style={{ justifyContent: 'center', fontSize: '0.85rem', padding: '10px' }}
-                    >
-                      <Upload size={16} />
-                      <span>{lang === 'ta' ? 'பழுதுநீக்கச் சான்று சமர்ப்பி (Submit Proof)' : 'Submit Official Proof of Action'}</span>
-                    </button>
-
-                    <button
-                      onClick={() => handleFastForwardSLA(item.id)}
-                      className="glass-btn"
-                      style={{ justifyContent: 'center', fontSize: '0.75rem', color: '#c4b5fd' }}
-                    >
-                      <FastForward size={14} />
-                      <span>{lang === 'ta' ? 'SLA காலக்கெடுவை வேகப்படுத்து (Demo)' : 'Demo Fast-Forward SLA Escalation'}</span>
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          );
-        })}
+      {/* DEPARTMENT FILTER */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)' }}>Filter Department:</span>
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+          {['ALL', ...TN_DEPARTMENTS.map(d => d.id)].map(dept => (
+            <button
+              key={dept}
+              onClick={() => setSelectedDept(dept)}
+              className={`glass-btn ${selectedDept === dept ? 'glass-btn-primary' : ''}`}
+              style={{ fontSize: '0.75rem', padding: '4px 10px' }}
+            >
+              {dept === 'ALL' ? 'All Departments' : TN_DEPARTMENTS.find(d => d.id === dept)?.nameEn || dept}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Official Proof of Action Modal Form */}
-      {selectedComplaint && (
-        <div style={{
-          position: 'fixed',
-          top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0,0,0,0.8)',
-          backdropFilter: 'blur(8px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '20px'
-        }}>
-          <form onSubmit={handleResolveComplaint} className="glass-panel" style={{ maxWidth: '540px', width: '100%', padding: '26px', maxHeight: '90vh', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--primary)', marginBottom: '14px' }}>
-              <ShieldAlert size={24} />
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>
-                {lang === 'ta' ? 'அதிகாரப்பூர்வ நடவடிக்கைச் சான்று சமர்ப்பித்தல்' : 'Official Proof of Action Submission'}
-              </h3>
-            </div>
+      {/* DASHBOARD TAB METRICS CARDS */}
+      {activeTab === 'dashboard' && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '14px', marginBottom: '24px' }}>
+          <div className="glass-panel" style={{ padding: '16px', borderLeft: '4px solid #38bdf8' }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>NEW ASSIGNMENTS</div>
+            <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#f8fafc', marginTop: '4px' }}>{summaryMetrics.new_assignments}</div>
+          </div>
 
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '18px' }}>
-              Ticket ID: <strong>{selectedComplaint.id}</strong> • Ward: <strong>{selectedComplaint.ward}</strong>
-            </p>
+          <div className="glass-panel" style={{ padding: '16px', borderLeft: '4px solid #f43f5e' }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>HIGH PRIORITY</div>
+            <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#fca5a5', marginTop: '4px' }}>{summaryMetrics.high_priority}</div>
+          </div>
 
-            {/* Original Complaint vs After Repair Photo Preview */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
-              <div>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', display: 'block', marginBottom: '4px' }}>
-                  {lang === 'ta' ? '1. ஆரம்ப புகார் படம் (Before):' : '1. Original Complaint Photo:'}
-                </span>
-                <img src={selectedComplaint.photoUrl} alt="Before" style={{ width: '100%', height: '110px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border-color)' }} />
-              </div>
+          <div className="glass-panel" style={{ padding: '16px', borderLeft: '4px solid #f59e0b' }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>IN PROGRESS</div>
+            <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#fde047', marginTop: '4px' }}>{summaryMetrics.in_progress}</div>
+          </div>
 
-              <div>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', display: 'block', marginBottom: '4px' }}>
-                  {lang === 'ta' ? '2. பழுதுநீக்கப்பட்ட படம் (After):' : '2. After Repair Photo:'}
-                </span>
-                <img
-                  src={afterPhoto || "https://images.unsplash.com/photo-1517649763962-0c623266010b?auto=format&fit=crop&w=600&q=80"}
-                  alt="After"
-                  style={{ width: '100%', height: '110px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--primary)' }}
-                />
-              </div>
-            </div>
+          <div className="glass-panel" style={{ padding: '16px', borderLeft: '4px solid #a855f7' }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>SLA NEARING</div>
+            <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#e9d5ff', marginTop: '4px' }}>{summaryMetrics.sla_nearing}</div>
+          </div>
 
-            {/* After Photo URL Input */}
-            <div style={{ marginBottom: '14px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
-                <Camera size={16} color="#0ea5e9" />
-                <span>{lang === 'ta' ? 'பழுதுநீக்கப்பட்ட புகைப்பட URL:' : 'After-Repair Photo URL:'}</span>
-              </label>
-              <input
-                type="text"
-                className="glass-input"
-                value={afterPhoto || "https://images.unsplash.com/photo-1517649763962-0c623266010b?auto=format&fit=crop&w=600&q=80"}
-                onChange={(e) => setAfterPhoto(e.target.value)}
-              />
-            </div>
+          <div className="glass-panel" style={{ padding: '16px', borderLeft: '4px solid #ef4444' }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>OVERDUE</div>
+            <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#ef4444', marginTop: '4px' }}>{summaryMetrics.overdue}</div>
+          </div>
 
-            {/* Work Notes Input */}
-            <div style={{ marginBottom: '14px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
-                <FileText size={16} color="#0ea5e9" />
-                <span>{lang === 'ta' ? 'நடவடிக்கைக் குறிப்புகள் (Work Description):' : 'Official Work Completion Notes:'}</span>
-              </label>
-              <textarea
-                className="glass-input"
-                rows={3}
-                placeholder={lang === 'ta' ? 'எ.கா: சாலைப் பள்ளம் தார் கலவையால் மூடப்பட்டு சமன் செய்யப்பட்டது.' : 'e.g. Pothole filled with cold-mix asphalt and leveled with roller.'}
-                value={workNotes}
-                onChange={(e) => setWorkNotes(e.target.value)}
-              />
-            </div>
-
-            {/* Contractor & Cost Details */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '18px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                  {lang === 'ta' ? 'ஒப்பந்ததாரர் / பிரிவு:' : 'Executing Unit / Contractor:'}
-                </label>
-                <input
-                  type="text"
-                  className="glass-input"
-                  value={contractorName}
-                  onChange={(e) => setContractorName(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                  {lang === 'ta' ? 'மதிப்பீட்டுச் செலவு:' : 'Estimated Cost:'}
-                </label>
-                <input
-                  type="text"
-                  className="glass-input"
-                  value={costEstimate}
-                  onChange={(e) => setCostEstimate(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* AI Vision Match Alert */}
-            <div style={{ padding: '12px', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '8px', marginBottom: '20px', fontSize: '0.8rem', color: '#6ee7b7', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <CheckCircle size={18} />
-              <span>{lang === 'ta' ? 'Gemini Vision AI ஒப்பீடு: 94% SSIM Visual Fix Match சரிபார்க்கப்பட்டது!' : 'Gemini Vision AI Verification: 94% visual fix match confirmed!'}</span>
-            </div>
-
-            {/* Action Buttons */}
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <button
-                type="button"
-                onClick={() => setSelectedComplaint(null)}
-                className="glass-btn"
-                style={{ flex: 1, justifyContent: 'center' }}
-              >
-                {lang === 'ta' ? 'ரத்துசெய்' : 'Cancel'}
-              </button>
-              <button
-                type="submit"
-                className="glass-btn glass-btn-primary"
-                style={{ flex: 1, justifyContent: 'center', padding: '12px' }}
-              >
-                {lang === 'ta' ? 'சான்றைச் சமர்ப்பி & அனுப்பு' : 'Submit Official Proof of Action'}
-              </button>
-            </div>
-          </form>
+          <div className="glass-panel" style={{ padding: '16px', borderLeft: '4px solid #10b981' }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>COMPLETED</div>
+            <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#6ee7b7', marginTop: '4px' }}>{summaryMetrics.completed}</div>
+          </div>
         </div>
       )}
+
+      {/* SATELLITE MAP TAB */}
+      {activeTab === 'map' && (
+        <div style={{ marginBottom: '24px' }}>
+          <CivicHeatmapView publicIssues={filteredComplaints.map(c => ({
+            id: c.id,
+            category: c.categoryEn || 'ROADS',
+            lat: c.lat,
+            lon: c.lon,
+            ward: c.ward,
+            status: c.status
+          }))} />
+        </div>
+      )}
+
+      {/* COMPLAINT LIST & DETAIL VIEW */}
+      {!selectedComplaint ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '16px' }}>
+          {filteredComplaints.map(comp => (
+            <div key={comp.id} className="glass-panel" style={{ padding: '18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--primary)', letterSpacing: '0.5px' }}>
+                    {comp.id}
+                  </span>
+                  <span className={`badge ${comp.priority === 'HIGH' ? 'badge-high' : 'badge-medium'}`}>
+                    {comp.priority || 'MEDIUM'} PRIORITY
+                  </span>
+                </div>
+
+                <h3 style={{ fontSize: '0.98rem', fontWeight: 700, color: '#f8fafc', marginBottom: '6px' }}>
+                  {comp.titleEn || comp.processed_description}
+                </h3>
+
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
+                  📍 {comp.ward || 'Chennai Ward'}
+                </p>
+
+                {/* SLA & AUTOMATIC ESCALATION DISPLAY (NO MANUAL ESCALATE BUTTON) */}
+                <div style={{ padding: '10px 12px', background: '#090d16', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.08)', marginBottom: '14px', fontSize: '0.78rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <span style={{ color: 'var(--text-dim)' }}>SLA Deadline:</span>
+                    <span style={{ color: comp.slaDaysRemaining <= 1 ? '#f43f5e' : '#f8fafc', fontWeight: 700 }}>
+                      ⏱️ {comp.slaDaysRemaining} Days Remaining
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--text-dim)' }}>Escalation Status:</span>
+                    <span style={{ color: comp.slaDaysRemaining <= 0 ? '#ef4444' : comp.slaDaysRemaining <= 2 ? '#f59e0b' : '#10b981', fontWeight: 700 }}>
+                      {comp.slaDaysRemaining <= 0 ? '⚠️ Breached (Supervisor Notified)' : comp.slaDaysRemaining <= 2 ? '⚠️ Warning' : 'None'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* CARD ACTIONS */}
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => setSelectedComplaint(comp)}
+                  className="glass-btn glass-btn-primary"
+                  style={{ flex: 1, justifyContent: 'center', fontSize: '0.78rem' }}
+                >
+                  <Eye size={14} />
+                  <span>View Details</span>
+                </button>
+
+                {comp.status === 'OPEN' && (
+                  <button
+                    onClick={() => handleAcceptTask(comp.id)}
+                    className="glass-btn"
+                    style={{ fontSize: '0.78rem', borderColor: 'var(--accent-green)', color: '#6ee7b7' }}
+                  >
+                    <CheckCircle size={14} />
+                    <span>Accept Task</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        /* SINGLE COMPLAINT OPERATIONAL DETAIL VIEW */
+        <div className="glass-panel" style={{ padding: '24px' }}>
+          <button
+            onClick={() => { setSelectedComplaint(null); setActiveModal(null); }}
+            className="glass-btn"
+            style={{ marginBottom: '18px', fontSize: '0.8rem' }}
+          >
+            ← Back to Complaints List
+          </button>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#f8fafc' }}>
+                  Ticket {selectedComplaint.id}
+                </h2>
+                <span className="badge badge-high">{selectedComplaint.priority} PRIORITY</span>
+                <span className="badge badge-escalated">STATE: {selectedComplaint.workflow_state || selectedComplaint.status}</span>
+              </div>
+              <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)' }}>
+                📍 {selectedComplaint.ward} | Department: {selectedComplaint.department}
+              </p>
+            </div>
+
+            {/* SLA & ESCALATION NOTICE */}
+            <div style={{ padding: '10px 14px', background: '#090d16', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: '8px', textAlign: 'right' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>Automatic System Escalation:</div>
+              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: selectedComplaint.slaDaysRemaining <= 0 ? '#ef4444' : '#f59e0b' }}>
+                {selectedComplaint.slaDaysRemaining <= 0 ? '⚠️ Breached — Auto-Escalated to Zonal Supervisor' : `${selectedComplaint.slaDaysRemaining} Days Remaining (Auto Managed)`}
+              </div>
+            </div>
+          </div>
+
+          {/* TWO COLUMN COMPLAINT DETAIL & WORKFLOW ACTIONS */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px', marginBottom: '24px' }}>
+            
+            {/* LEFT COLUMN: CITIZEN EVIDENCE & AI ANALYSIS */}
+            <div>
+              <h4 style={{ fontSize: '0.92rem', fontWeight: 700, color: '#f8fafc', marginBottom: '10px' }}>
+                📷 Citizen Intake Photo Evidence
+              </h4>
+              <img
+                src={selectedComplaint.photoUrl || "https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?auto=format&fit=crop&w=600&q=80"}
+                alt="Intake Evidence"
+                style={{ width: '100%', height: '200px', objectFit: 'cover', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.1)', marginBottom: '14px' }}
+              />
+
+              <div style={{ background: '#090d16', padding: '14px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.08)', marginBottom: '14px' }}>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Original Citizen Description:</div>
+                <p style={{ fontSize: '0.88rem', color: '#f8fafc', fontWeight: 500, marginBottom: '10px' }}>
+                  "{selectedComplaint.titleTa || selectedComplaint.original_description}"
+                </p>
+
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Sarvam AI English Translation:</div>
+                <p style={{ fontSize: '0.88rem', color: '#38bdf8', fontWeight: 600 }}>
+                  "{selectedComplaint.titleEn || selectedComplaint.processed_description}"
+                </p>
+              </div>
+
+              {/* Duplicate Check Info */}
+              <div style={{ padding: '12px', background: 'rgba(99, 102, 241, 0.12)', border: '1px solid rgba(99, 102, 241, 0.3)', borderRadius: '8px', fontSize: '0.8rem', color: '#a5b4fc' }}>
+                🔍 <strong>Spatial & Embedding Deduplication Check:</strong> Verified Unique Master Ticket ({selectedComplaint.reporterCount || 1} Citizen Report Linked).
+              </div>
+            </div>
+
+            {/* RIGHT COLUMN: OFFICER WORKFLOW ACTIONS & STAGES */}
+            <div>
+              <h4 style={{ fontSize: '0.92rem', fontWeight: 700, color: '#f8fafc', marginBottom: '12px' }}>
+                ⚙️ Officer Operational Workflow Actions
+              </h4>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+                <button
+                  onClick={() => setActiveModal('inspection')}
+                  className="glass-btn glass-btn-primary"
+                  style={{ justifyContent: 'space-between', padding: '12px 16px' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Camera size={16} />
+                    <span>1. Submit Site Inspection Report</span>
+                  </div>
+                  <ArrowRight size={16} />
+                </button>
+
+                <button
+                  onClick={() => setActiveModal('budget')}
+                  className="glass-btn"
+                  style={{ justifyContent: 'space-between', padding: '12px 16px', borderColor: '#f59e0b', color: '#fde047' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <DollarSign size={16} />
+                    <span>2. Fund / Budget Check & Approval</span>
+                  </div>
+                  <ArrowRight size={16} />
+                </button>
+
+                <button
+                  onClick={() => setActiveModal('work_order')}
+                  className="glass-btn"
+                  style={{ justifyContent: 'space-between', padding: '12px 16px', borderColor: '#38bdf8', color: '#38bdf8' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Hammer size={16} />
+                    <span>3. Issue Work Order to Field Team</span>
+                  </div>
+                  <ArrowRight size={16} />
+                </button>
+
+                <button
+                  onClick={() => setActiveModal('evidence')}
+                  className="glass-btn"
+                  style={{ justifyContent: 'space-between', padding: '12px 16px', borderColor: '#10b981', color: '#6ee7b7' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Upload size={16} />
+                    <span>4. Upload Repair Evidence (Before/After)</span>
+                  </div>
+                  <ArrowRight size={16} />
+                </button>
+              </div>
+
+              {/* AUDIT LOG TRAIL */}
+              <div style={{ background: '#090d16', padding: '14px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                <h5 style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '8px' }}>
+                  📜 Action Accountability & Audit Log Trail
+                </h5>
+                <div style={{ fontSize: '0.78rem', color: '#94a3b8', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {selectedComplaint.history ? selectedComplaint.history.map((h, idx) => (
+                    <div key={idx} style={{ padding: '6px 8px', background: '#131c2e', borderRadius: '6px' }}>
+                      <strong style={{ color: '#f8fafc' }}>{h.step}:</strong> {h.note}
+                    </div>
+                  )) : (
+                    <div>Task assigned to Ward Assistant Engineer.</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* DYNAMIC ACTION MODALS */}
+
+          {/* 1. SITE INSPECTION FORM MODAL */}
+          {activeModal === 'inspection' && (
+            <div style={{ background: '#090d16', padding: '20px', borderRadius: '10px', border: '1px solid var(--primary)', marginTop: '16px' }}>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#f8fafc', marginBottom: '12px' }}>
+                📋 Submit Site Inspection Report
+              </h3>
+
+              <form onSubmit={handleSubmitInspection} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Problem Condition:</label>
+                  <input className="glass-input" value={inspectionData.problem_condition} onChange={e => setInspectionData({...inspectionData, problem_condition: e.target.value})} />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Approx Dimensions:</label>
+                  <input className="glass-input" value={inspectionData.dimensions} onChange={e => setInspectionData({...inspectionData, dimensions: e.target.value})} />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Preliminary Cost Estimate (₹):</label>
+                  <input type="number" className="glass-input" value={inspectionData.preliminary_estimate} onChange={e => setInspectionData({...inspectionData, preliminary_estimate: Number(e.target.value)})} />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Recommended Action:</label>
+                  <input className="glass-input" value={inspectionData.recommended_action} onChange={e => setInspectionData({...inspectionData, recommended_action: e.target.value})} />
+                </div>
+
+                <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '8px', marginTop: '10px' }}>
+                  <button type="submit" className="glass-btn glass-btn-primary">Submit Inspection Report</button>
+                  <button type="button" onClick={() => setActiveModal(null)} className="glass-btn">Cancel</button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* 2. BUDGET APPROVAL MODAL */}
+          {activeModal === 'budget' && (
+            <div style={{ background: '#090d16', padding: '20px', borderRadius: '10px', border: '1px solid #f59e0b', marginTop: '16px' }}>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#fde047', marginBottom: '12px' }}>
+                💰 Fund & Budget Approval Request
+              </h3>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
+                Officers cannot self-approve funding requests. Submissions will be routed to the Zonal Supervisor.
+              </p>
+
+              <form onSubmit={handleSubmitBudgetRequest} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Required Cost Estimate (₹):</label>
+                  <input type="number" className="glass-input" value={budgetData.estimated_cost} onChange={e => setBudgetData({...budgetData, estimated_cost: Number(e.target.value)})} />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Justification / Reason:</label>
+                  <textarea className="glass-input" rows={2} value={budgetData.reason} onChange={e => setBudgetData({...budgetData, reason: e.target.value})} />
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button type="submit" className="glass-btn" style={{ background: '#f59e0b', borderColor: '#d97706', color: '#ffffff' }}>Submit Request to Supervisor</button>
+                  <button type="button" onClick={() => setActiveModal(null)} className="glass-btn">Cancel</button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* 3. WORK ORDER MODAL */}
+          {activeModal === 'work_order' && (
+            <div style={{ background: '#090d16', padding: '20px', borderRadius: '10px', border: '1px solid #38bdf8', marginTop: '16px' }}>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#38bdf8', marginBottom: '12px' }}>
+                🔨 Create Formal Work Order
+              </h3>
+
+              <form onSubmit={handleCreateWorkOrder} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Work Description:</label>
+                  <input className="glass-input" value={workOrderData.work_description} onChange={e => setWorkOrderData({...workOrderData, work_description: e.target.value})} />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Assigned Execution Team:</label>
+                  <select className="glass-input" value={workOrderData.assigned_team} onChange={e => setWorkOrderData({...workOrderData, assigned_team: e.target.value})}>
+                    <option value="internal_field_team">Internal Highways Field Team</option>
+                    <option value="maintenance_team">Zonal Maintenance Unit</option>
+                    <option value="contractor">Approved Municipal Contractor</option>
+                  </select>
+                </div>
+
+                <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '8px', marginTop: '10px' }}>
+                  <button type="submit" className="glass-btn glass-btn-primary">Dispatch Work Order</button>
+                  <button type="button" onClick={() => setActiveModal(null)} className="glass-btn">Cancel</button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* 4. EVIDENCE UPLOAD MODAL */}
+          {activeModal === 'evidence' && (
+            <div style={{ background: '#090d16', padding: '20px', borderRadius: '10px', border: '1px solid #10b981', marginTop: '16px' }}>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#6ee7b7', marginBottom: '12px' }}>
+                📸 Upload Resolution Repair Evidence
+              </h3>
+
+              <form onSubmit={handleSubmitEvidence} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>After Repair Photo URL:</label>
+                  <input className="glass-input" value={evidenceData.after_photo_url} onChange={e => setEvidenceData({...evidenceData, after_photo_url: e.target.value})} />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Officer Completion Notes:</label>
+                  <textarea className="glass-input" rows={2} value={evidenceData.completion_notes} onChange={e => setEvidenceData({...evidenceData, completion_notes: e.target.value})} />
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button type="submit" className="glass-btn glass-btn-primary">Submit for Citizen Verification</button>
+                  <button type="button" onClick={() => setActiveModal(null)} className="glass-btn">Cancel</button>
+                </div>
+              </form>
+            </div>
+          )}
+
+        </div>
+      )}
+
     </div>
   );
 }

@@ -59,6 +59,44 @@ class IssueSupport(Base):
     user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
+# --- MODULE 2 OFFICER WORKFLOW & INSPECTIONS ---
+class SiteInspection(Base):
+    __tablename__ = "site_inspections"
+
+    id = Column(String, primary_key=True, default=generate_uuid, index=True)
+    issue_id = Column(String, ForeignKey("issues.id"), nullable=False, index=True)
+    officer_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    latitude = Column(Float, nullable=False)
+    longitude = Column(Float, nullable=False)
+    site_photo_url = Column(Text, nullable=True)
+    problem_condition = Column(Text, nullable=False)
+    severity = Column(String, default="MEDIUM", nullable=False)
+    dimensions = Column(String, nullable=True)
+    safety_risk = Column(String, default="LOW", nullable=False)
+    required_materials = Column(Text, nullable=True)
+    required_manpower = Column(Integer, default=2, nullable=False)
+    preliminary_estimate = Column(Float, default=0.0, nullable=False)
+    inspection_notes = Column(Text, nullable=True)
+    recommended_action = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+class WorkOrder(Base):
+    __tablename__ = "work_orders"
+
+    id = Column(String, primary_key=True, default=lambda: f"WO-{uuid.uuid4().hex[:6].upper()}", index=True)
+    issue_id = Column(String, ForeignKey("issues.id"), nullable=False, index=True)
+    created_by_officer_id = Column(String, ForeignKey("users.id"), nullable=False)
+    work_description = Column(Text, nullable=False)
+    materials = Column(Text, nullable=True)
+    manpower = Column(Integer, default=2, nullable=False)
+    estimated_cost = Column(Float, default=0.0, nullable=False)
+    assigned_team = Column(String, nullable=False)
+    deadline = Column(DateTime, nullable=False)
+    priority = Column(String, default="MEDIUM", nullable=False)
+    status = Column(String, default="ASSIGNED", nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
 # --- ISSUE DATA MODEL ---
 class Issue(Base):
     __tablename__ = "issues"
@@ -66,19 +104,20 @@ class Issue(Base):
     id = Column(String, primary_key=True, default=lambda: f"TN-{datetime.now().year}-{uuid.uuid4().hex[:6].upper()}", index=True)
     offline_submission_id = Column(String, unique=True, index=True, nullable=True)
     reporter_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    assigned_officer_id = Column(String, ForeignKey("users.id"), nullable=True, index=True)
     
     # Dual-Text & Sarvam AI Language Fields
     original_description = Column(Text, nullable=True)
     processed_description = Column(Text, nullable=True)
-    description = Column(Text, nullable=True) # Legacy/Fallback field
+    description = Column(Text, nullable=True)
     
     original_language = Column(String, default="English", nullable=False)
     processing_language = Column(String, default="English", nullable=False)
-    language = Column(String, default="English", nullable=False) # Legacy/Fallback field
+    language = Column(String, default="English", nullable=False)
     
     voice_url = Column(Text, nullable=True)
     voice_transcript = Column(Text, nullable=True)
-    language_processing_status = Column(String, default="PENDING", nullable=False) # PENDING, COMPLETED, FAILED
+    language_processing_status = Column(String, default="PENDING", nullable=False)
     
     # Module 6 AI Categorization Fields
     ai_category = Column(String, nullable=True)
@@ -98,9 +137,22 @@ class Issue(Base):
     duplicate_score = Column(Float, nullable=True)
     duplicate_confidence_breakdown = Column(Text, nullable=True)
 
+    # Officer Portal Workflow & Budget Fields
+    workflow_state = Column(String, default="ASSIGNED", nullable=False) 
+    budget_status = Column(String, default="BUDGET_NOT_REQUIRED", nullable=False)
+    estimated_cost = Column(Float, default=0.0, nullable=False)
+    available_department_budget = Column(Float, default=500000.0, nullable=False)
+    budget_approval_notes = Column(Text, nullable=True)
+    
+    sla_deadline = Column(DateTime, nullable=True)
+    escalation_status = Column(String, default="NONE", nullable=False)
+
     # Module 9 Resolution & Verification Fields
+    resolution_before_photo = Column(Text, nullable=True)
     resolution_after_photo = Column(Text, nullable=True)
     resolution_notes = Column(Text, nullable=True)
+    completion_latitude = Column(Float, nullable=True)
+    completion_longitude = Column(Float, nullable=True)
     resolved_at = Column(DateTime, nullable=True)
     citizen_confirmation_status = Column(String, default="PENDING", nullable=False)
     
@@ -135,7 +187,12 @@ class AuditLog(Base):
 
     id = Column(String, primary_key=True, default=generate_uuid)
     user_id = Column(String, nullable=True)
+    officer_id = Column(String, nullable=True)
     event_type = Column(String, nullable=False)
+    action = Column(String, nullable=True)
+    previous_status = Column(String, nullable=True)
+    new_status = Column(String, nullable=True)
     details = Column(Text, nullable=True)
+    notes = Column(Text, nullable=True)
     ip_address = Column(String, nullable=True)
     timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))

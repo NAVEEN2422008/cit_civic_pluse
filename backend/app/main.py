@@ -5,7 +5,7 @@ from app.database import engine, Base, SessionLocal
 from app.models import MockIdentity, User
 from app.auth import hash_identity, hash_password
 from app.middleware.security_middleware import SecurityHeadersAndRateLimitMiddleware
-from app.routers import auth_router, user_router, citizen_router, issue_router
+from app.routers import auth_router, user_router, citizen_router, issue_router, officer_router
 
 # Create DB tables
 Base.metadata.create_all(bind=engine)
@@ -58,8 +58,8 @@ seed_initial_data()
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    description="FastAPI Backend for CivicPulse — Separate Role Authentication & RBAC Governance",
-    version="11.0.0"
+    description="FastAPI Backend for CivicPulse — Module 2 Officer Portal & Operational Workspace",
+    version="11.1.0"
 )
 
 # Module 10 Rate Limiting & Security Headers Middleware
@@ -79,12 +79,14 @@ app.include_router(auth_router.router, prefix="/api/v1")
 app.include_router(user_router.router, prefix="/api/v1")
 app.include_router(citizen_router.router, prefix="/api/v1")
 app.include_router(issue_router.router, prefix="/api/v1")
+app.include_router(officer_router.router, prefix="/api/v1")
 
 @app.get("/")
 def read_root():
     return {
         "status": "healthy",
         "service": settings.PROJECT_NAME,
-        "version": "11.0.0",
-        "role_auth": "Separated Citizen vs Officer Endpoint Architecture"
+        "version": "11.1.0",
+        "role_auth": "Separated Citizen vs Officer Endpoint Architecture",
+        "officer_workspace": "Module 2 Officer Operational Portal Enabled"
     }

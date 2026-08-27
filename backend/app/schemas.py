@@ -79,6 +79,53 @@ class StandardResponse(BaseModel):
     message: str
     data: Optional[Dict] = None
 
+# Officer Portal Action Requests
+class AcceptTaskRequest(BaseModel):
+    notes: Optional[str] = None
+
+class SiteInspectionRequest(BaseModel):
+    latitude: float
+    longitude: float
+    site_photo_url: Optional[str] = None
+    problem_condition: str
+    severity: str = "MEDIUM"
+    dimensions: Optional[str] = None
+    safety_risk: str = "LOW"
+    required_materials: Optional[str] = None
+    required_manpower: int = 2
+    preliminary_estimate: float = 0.0
+    inspection_notes: Optional[str] = None
+    recommended_action: str
+
+class BudgetApprovalRequest(BaseModel):
+    estimated_cost: float
+    reason: str
+
+class BudgetDecisionRequest(BaseModel):
+    approved: bool
+    notes: Optional[str] = None
+
+class CreateWorkOrderRequest(BaseModel):
+    work_description: str
+    materials: Optional[str] = None
+    manpower: int = 2
+    estimated_cost: float
+    assigned_team: str
+    deadline_days: int = 3
+    priority: str = "MEDIUM"
+
+class UpdateWorkProgressRequest(BaseModel):
+    status: str
+    notes: Optional[str] = None
+    progress_photo_url: Optional[str] = None
+
+class ResolutionEvidenceRequest(BaseModel):
+    before_photo_url: Optional[str] = None
+    after_photo_url: str
+    completion_notes: str
+    completion_latitude: float
+    completion_longitude: float
+
 # Dashboard & Citizen Schemas
 class DashboardSummaryResponse(BaseModel):
     total_reported: int
@@ -129,6 +176,7 @@ class IssueDetailResponse(BaseModel):
 
 # Issue Schemas
 class IssueCreateRequest(BaseModel):
+    offline_submission_id: Optional[str] = None
     description: Optional[str] = None
     language: str = "English"
     media_url: Optional[str] = None

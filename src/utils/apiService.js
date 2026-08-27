@@ -107,64 +107,107 @@ export const apiService = {
     return data;
   },
 
-  // --- MODULE 2 DASHBOARD METHODS ---
+  // --- MODULE 2 OFFICER PORTAL API METHODS ---
 
-  // 7. Get Citizen Dashboard Summary
-  getDashboardSummary: async () => {
+  // Get Officer Dashboard Summary & Assigned Issues
+  getOfficerDashboard: async () => {
     const token = apiService.getToken();
     if (!token) throw new Error('No access token found');
 
-    const res = await fetch(`${API_BASE_URL}/citizen/dashboard`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
+    const res = await fetch(`${API_BASE_URL}/officer/dashboard`, {
+      headers: { 'Authorization': `Bearer ${token}` }
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || 'Failed to fetch dashboard summary');
+    if (!res.ok) throw new Error(data.detail || 'Failed to fetch officer dashboard');
     return data;
   },
 
-  // --- MODULE 3 & 4 INTAKE METHODS ---
-
-  // 8. Create Issue (Intake API)
-  createIssue: async (issuePayload) => {
+  acceptOfficerTask: async (issueId, notes = '') => {
     const token = apiService.getToken();
-    const headers = { 'Content-Type': 'application/json' };
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    const res = await fetch(`${API_BASE_URL}/issues/intake`, {
+    const res = await fetch(`${API_BASE_URL}/officer/issues/${issueId}/accept`, {
       method: 'POST',
-      headers,
-      body: JSON.stringify(issuePayload)
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ notes })
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || 'Failed to submit issue');
+    if (!res.ok) throw new Error(data.detail || 'Failed to accept task');
     return data;
   },
 
-  // 9. Sync Offline Queue Batch
-  syncBatchOfflineIssues: async (issuesArray) => {
+  submitSiteInspection: async (issueId, inspectionData) => {
     const token = apiService.getToken();
-    const headers = { 'Content-Type': 'application/json' };
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    const res = await fetch(`${API_BASE_URL}/issues/sync-batch`, {
+    const res = await fetch(`${API_BASE_URL}/officer/issues/${issueId}/submit-inspection`, {
       method: 'POST',
-      headers,
-      body: JSON.stringify(issuesArray)
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify(inspectionData)
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || 'Failed to sync offline issues');
+    if (!res.ok) throw new Error(data.detail || 'Failed to submit inspection');
+    return data;
+  },
+
+  requestBudgetApproval: async (issueId, estimated_cost, reason) => {
+    const token = apiService.getToken();
+    const res = await fetch(`${API_BASE_URL}/officer/issues/${issueId}/request-budget`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ estimated_cost, reason })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Failed to submit budget request');
+    return data;
+  },
+
+  decideBudget: async (issueId, approved, notes = '') => {
+    const token = apiService.getToken();
+    const res = await fetch(`${API_BASE_URL}/officer/issues/${issueId}/decide-budget`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ approved, notes })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Failed to decide budget');
+    return data;
+  },
+
+  createWorkOrder: async (issueId, workOrderData) => {
+    const token = apiService.getToken();
+    const res = await fetch(`${API_BASE_URL}/officer/issues/${issueId}/create-work-order`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify(workOrderData)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Failed to create work order');
+    return data;
+  },
+
+  updateWorkProgress: async (issueId, status, notes = '') => {
+    const token = apiService.getToken();
+    const res = await fetch(`${API_BASE_URL}/officer/issues/${issueId}/update-progress`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ status, notes })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Failed to update work progress');
+    return data;
+  },
+
+  submitResolutionEvidence: async (issueId, evidenceData) => {
+    const token = apiService.getToken();
+    const res = await fetch(`${API_BASE_URL}/officer/issues/${issueId}/submit-evidence`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify(evidenceData)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Failed to submit evidence');
     return data;
   },
 
   // --- MODULE 8 PUBLIC COMPLAINTS & HEATMAP METHODS ---
 
-  // 10. Get Public Nearby Issues
   getPublicNearbyIssues: async (lat = 13.0827, lon = 80.2707, radius_km = 5.0) => {
     const res = await fetch(`${API_BASE_URL}/issues/public-nearby?lat=${lat}&lon=${lon}&radius_km=${radius_km}`);
     const data = await res.json();
@@ -172,7 +215,6 @@ export const apiService = {
     return data;
   },
 
-  // 11. Get Heatmap Clusters
   getHeatmapClusters: async () => {
     const res = await fetch(`${API_BASE_URL}/issues/heatmap-clusters`);
     const data = await res.json();
@@ -180,9 +222,6 @@ export const apiService = {
     return data;
   },
 
-  // --- MODULE 9 RESOLUTION VERIFICATION METHODS ---
-
-  // 12. Submit Citizen Resolution Verification
   verifyResolution: async (issueId, { confirmed, reopen_reason, reopen_proof_photo }) => {
     const token = apiService.getToken();
     const headers = { 'Content-Type': 'application/json' };
