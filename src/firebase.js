@@ -26,6 +26,7 @@ import {
   uploadBytes, 
   getDownloadURL 
 } from 'firebase/storage';
+import { compressImage } from './utils/imageCompressor';
 
 // Firebase Configuration for civic-d36c7 Project
 const firebaseConfig = {
@@ -88,25 +89,13 @@ export const subscribeToMyComplaints = (userEmail, callback) => {
 };
 
 /**
- * Convert an image File/Blob to a Base64 Data URL string
- * to store images directly inside Firestore document fields.
+ * Convert an image File/Blob to a compressed Base64 Data URL string
+ * to store images directly inside Firestore document fields safely under 150 KB.
  */
-export const fileToBase64 = (file) => {
-  return new Promise((resolve, reject) => {
-    if (!file) {
-      resolve(null);
-      return;
-    }
-    if (typeof file === 'string') {
-      // Already a URL or Base64 string
-      resolve(file);
-      return;
-    }
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = (error) => reject(error);
-  });
+export const fileToBase64 = async (file) => {
+  if (!file) return null;
+  if (typeof file === 'string') return file;
+  return await compressImage(file, 1200, 1200, 0.65);
 };
 
 /**
