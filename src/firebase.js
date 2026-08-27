@@ -27,14 +27,15 @@ import {
   getDownloadURL 
 } from 'firebase/storage';
 
-// Firebase Configuration from Vite Environment Variables (with demo fallbacks)
+// Firebase Configuration for civic-d36c7 Project
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDemoCivicPulseKey2026",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "civicpulse-tn-gov.firebaseapp.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "civicpulse-tn-gov",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "civicpulse-tn-gov.appspot.com",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "900100200300",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:900100200300:web:civicpulse2026demo"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyBqGBGdekHUNlvtBUlEKVKamLKe2JQkAis",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "civic-d36c7.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "civic-d36c7",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "civic-d36c7.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "255141291633",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:255141291633:web:9c5f7fe500eec383301dd0",
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-RK8E2RCM82"
 };
 
 // Initialize Firebase SDK
