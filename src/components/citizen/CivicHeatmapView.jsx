@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Layers, MapPin, Globe, Satellite, Filter, ShieldCheck, Flame, Zap, BarChart2 } from 'lucide-react';
+import { Layers, MapPin, Globe, Satellite, Filter, ShieldCheck, Flame, Zap, BarChart2, Eye, Compass, RefreshCw } from 'lucide-react';
 import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { apiService } from '../../utils/apiService';
 
 // Fix Leaflet Default Icon Assets Path
@@ -11,65 +12,75 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png'
 });
 
-export default function CivicHeatmapView({ onViewDetails }) {
+export default function CivicHeatmapView({ publicIssues = [], onViewDetails }) {
   const [clusters, setClusters] = useState([]);
   const [categoryFilter, setCategoryFilter] = useState('ALL');
-  const [mapTileLayer, setMapTileLayer] = useState('SATELLITE'); // 'SATELLITE' | 'DARK' | 'STREET'
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [severityFilter, setSeverityFilter] = useState('ALL');
+  const [mapTileLayer, setMapTileLayer] = useState('DARK'); // 'DARK' | 'SATELLITE' | 'STREET'
+  const [currentZoomLevel, setCurrentZoomLevel] = useState(7); // Default State level
+  
   const mapContainerRef = useRef(null);
   const leafletMapRef = useRef(null);
   const heatmapLayerRef = useRef(null);
   const markersGroupRef = useRef(null);
 
-  // Professional Density Datapoints across major Tamil Nadu Corporations
+  // Category Icons & Color Mapping
+  const CATEGORY_ICONS = {
+    ROADS: { label: 'Roads', color: '#ef4444', icon: '🛣️' },
+    GARBAGE: { label: 'Garbage', color: '#f59e0b', icon: '🗑️' },
+    STREETLIGHTS: { label: 'Streetlights', color: '#eab308', icon: '💡' },
+    DRAINAGE: { label: 'Drainage', color: '#38bdf8', icon: '🌊' },
+    WATER: { label: 'Water', color: '#0284c7', icon: '🚰' },
+    FOOTPATH: { label: 'Footpath', color: '#10b981', icon: '🚶' },
+    PARKS: { label: 'Parks', color: '#22c55e', icon: '🌳' },
+    SAFETY: { label: 'Public Safety', color: '#a855f7', icon: '🚨' },
+    OTHER: { label: 'Other', color: '#64748b', icon: '📍' }
+  };
+
+  // 1. Fetch Heatmap Cluster Density Datapoints from Backend API
+  const fetchHeatmapData = async () => {
+    try {
+      const data = await apiService.getHeatmapClusters();
+      setClusters(data);
+    } catch (err) {
+      // High-Quality Fallback Anonymized Aggregated Clusters across Tamil Nadu
+      setClusters([
+        { latitude: 13.0827, longitude: 80.2707, intensity: 0.95, category: "ROADS", location_ward: "Ward 104, Anna Nagar, Chennai", reports_count: 28, status: "OPEN" },
+        { latitude: 13.0850, longitude: 80.2680, intensity: 0.88, category: "ROADS", location_ward: "Ward 104 North, Anna Nagar", reports_count: 18, status: "OPEN" },
+        { latitude: 13.0418, longitude: 80.2341, intensity: 0.92, category: "GARBAGE", location_ward: "Ward 112, T. Nagar, Chennai", reports_count: 32, status: "IN_PROGRESS" },
+        { latitude: 12.9815, longitude: 80.2180, intensity: 0.70, category: "STREETLIGHTS", location_ward: "Ward 170, Velachery, Chennai", reports_count: 14, status: "OPEN" },
+        { latitude: 13.0067, longitude: 80.2570, intensity: 0.85, category: "DRAINAGE", location_ward: "Ward 175, Adyar, Chennai", reports_count: 22, status: "IN_PROGRESS" },
+        { latitude: 9.9252, longitude: 78.1198, intensity: 0.89, category: "ROADS", location_ward: "Ward 45, K.K. Nagar, Madurai", reports_count: 24, status: "OPEN" },
+        { latitude: 11.0168, longitude: 76.9558, intensity: 0.94, category: "GARBAGE", location_ward: "Ward 14, Gandhipuram, Coimbatore", reports_count: 30, status: "OPEN" },
+        { latitude: 10.7905, longitude: 78.7047, intensity: 0.65, category: "WATER", location_ward: "Thillai Nagar, Tiruchirappalli", reports_count: 12, status: "RESOLVED" },
+        { latitude: 11.6643, longitude: 78.1460, intensity: 0.78, category: "ROADS", location_ward: "Junction Zone, Salem", reports_count: 19, status: "OPEN" }
+      ]);
+    }
+  };
+
   useEffect(() => {
-    const fetchClusters = async () => {
-      try {
-        const data = await apiService.getHeatmapClusters();
-        setClusters(data);
-      } catch (err) {
-        setClusters([
-          // Greater Chennai Corporation High-Density Clusters
-          { latitude: 13.0827, longitude: 80.2707, density_score: 96, category: "ROADS", location_ward: "Ward 104, Anna Nagar, Chennai", reports: 24 },
-          { latitude: 13.0850, longitude: 80.2680, density_score: 88, category: "ROADS", location_ward: "Ward 104 North, Anna Nagar", reports: 18 },
-          { latitude: 13.0418, longitude: 80.2341, density_score: 91, category: "GARBAGE", location_ward: "Ward 112, T. Nagar, Chennai", reports: 29 },
-          { latitude: 13.0440, longitude: 80.2380, density_score: 82, category: "GARBAGE", location_ward: "Usman Road, T. Nagar", reports: 19 },
-          { latitude: 12.9815, longitude: 80.2180, density_score: 68, category: "STREETLIGHT", location_ward: "Ward 170, Velachery, Chennai", reports: 14 },
-          { latitude: 13.0067, longitude: 80.2570, density_score: 87, category: "DRAINAGE", location_ward: "Ward 175, Adyar, Chennai", reports: 21 },
-          { latitude: 13.0090, longitude: 80.2530, density_score: 79, category: "DRAINAGE", location_ward: "Kasturba Nagar, Adyar", reports: 15 },
-          { latitude: 13.0604, longitude: 80.2496, density_score: 74, category: "WATER", location_ward: "Nungambakkam, Chennai", reports: 12 },
+    fetchHeatmapData();
+  }, [categoryFilter, statusFilter]);
 
-          // Madurai Corporation
-          { latitude: 9.9252, longitude: 78.1198, density_score: 89, category: "ROADS", location_ward: "Ward 45, K.K. Nagar, Madurai", reports: 22 },
-          { latitude: 9.9280, longitude: 78.1230, density_score: 81, category: "ROADS", location_ward: "East Gate, Madurai", reports: 16 },
-          { latitude: 9.9195, longitude: 78.1193, density_score: 52, category: "WATER", location_ward: "Meenakshi Temple Zone, Madurai", reports: 9 },
-
-          // Coimbatore Corporation
-          { latitude: 11.0168, longitude: 76.9558, density_score: 94, category: "GARBAGE", location_ward: "Ward 14, Gandhipuram, Coimbatore", reports: 27 },
-          { latitude: 11.0190, longitude: 76.9590, density_score: 85, category: "GARBAGE", location_ward: "Cross Cut Road, Coimbatore", reports: 20 },
-          { latitude: 10.9980, longitude: 76.9660, density_score: 64, category: "STREETLIGHT", location_ward: "RS Puram, Coimbatore", reports: 11 },
-
-          // Tiruchirappalli & Salem Corporations
-          { latitude: 10.7905, longitude: 78.7047, density_score: 58, category: "WATER", location_ward: "Thillai Nagar, Trichy", reports: 10 },
-          { latitude: 11.6643, longitude: 78.1460, density_score: 76, category: "ROADS", location_ward: "Junction Zone, Salem", reports: 17 }
-        ]);
-      }
-    };
-    fetchClusters();
-  }, []);
-
-  // Initialize Real Leaflet Map Centered on Tamil Nadu (11.1271° N, 78.6569° E)
+  // 2. Initialize MapLibre / Leaflet Map Container
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
     if (!leafletMapRef.current) {
       const map = L.map(mapContainerRef.current, {
-        center: [11.1271, 78.6569],
+        center: [11.1271, 78.6569], // Tamil Nadu State Center
         zoom: 7,
-        zoomControl: true
+        zoomControl: false // Custom controls added
       });
 
       leafletMapRef.current = map;
       markersGroupRef.current = L.layerGroup().addTo(map);
+
+      // Track Zoom Level for Dynamic Layer Switching (State -> District -> City -> Ward -> Markers)
+      map.on('zoomend', () => {
+        setCurrentZoomLevel(map.getZoom());
+      });
 
       setTimeout(() => {
         map.invalidateSize();
@@ -77,12 +88,11 @@ export default function CivicHeatmapView({ onViewDetails }) {
     }
   }, []);
 
-  // Handle Layer Switch (Esri World Imagery Satellite vs CartoDB Dark vs OSM Streets)
+  // 3. Tile Layer Switching (CARTO Dark, Esri World Imagery Satellite, OSM Streets)
   useEffect(() => {
     if (!leafletMapRef.current) return;
     const map = leafletMapRef.current;
 
-    // Remove existing tile layers
     map.eachLayer((layer) => {
       if (layer instanceof L.TileLayer) {
         map.removeLayer(layer);
@@ -94,7 +104,7 @@ export default function CivicHeatmapView({ onViewDetails }) {
 
     if (mapTileLayer === 'SATELLITE') {
       tileUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-      attribution = 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics';
+      attribution = 'Tiles &copy; Esri &mdash; Maxar, Earthstar Geographics';
     } else if (mapTileLayer === 'DARK') {
       tileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
       attribution = '&copy; OpenStreetMap &copy; CARTO';
@@ -111,252 +121,230 @@ export default function CivicHeatmapView({ onViewDetails }) {
     map.invalidateSize();
   }, [mapTileLayer]);
 
-  // Render Real Smooth Heatmap Layer (using L.heatLayer or Custom Canvas Gradient Density Overlay)
+  // 4. Render Heatmap Density & Public Markers based on Zoom Level & Filters
   useEffect(() => {
     if (!leafletMapRef.current) return;
     const map = leafletMapRef.current;
-
-    // 1. Remove previous Heatmap Layer if present
-    if (heatmapLayerRef.current) {
-      map.removeLayer(heatmapLayerRef.current);
-      heatmapLayerRef.current = null;
-    }
 
     if (markersGroupRef.current) {
       markersGroupRef.current.clearLayers();
     }
 
-    const filtered = categoryFilter === 'ALL'
-      ? clusters
-      : clusters.filter(c => c.category === categoryFilter);
+    const filtered = clusters.filter(c => {
+      const matchCat = categoryFilter === 'ALL' || c.category.toUpperCase() === categoryFilter.toUpperCase();
+      const matchStat = statusFilter === 'ALL' || c.status.toUpperCase() === statusFilter.toUpperCase();
+      return matchCat && matchStat;
+    });
 
-    // Prepare LatLngIntensity array: [lat, lng, intensity]
-    const heatPoints = filtered.map(c => [c.latitude, c.longitude, c.density_score / 100]);
+    // A. Zoom Level < 13: Render Smooth Gradient Heatmap Density Circles (Aggregated Anonymized Hotspots)
+    filtered.forEach(c => {
+      const lat = c.lat || c.latitude;
+      const lon = c.lon || c.longitude;
+      const intensity = c.intensity || 0.7;
+      
+      let heatColor = '#38bdf8'; // Low 🟢/🔵
+      if (intensity >= 0.85) heatColor = '#ef4444'; // Very High 🔴
+      else if (intensity >= 0.70) heatColor = '#f97316'; // High 🟠
+      else if (intensity >= 0.50) heatColor = '#eab308'; // Moderate 🟡
 
-    // Check if Leaflet.heat plugin is loaded globally via HTML script tag
-    if (typeof L.heatLayer === 'function') {
-      const heat = L.heatLayer(heatPoints, {
-        radius: 35,
-        blur: 25,
-        maxZoom: 17,
-        max: 1.0,
-        gradient: {
-          0.2: '#0284c7', // Cyan Blue
-          0.4: '#10b981', // Emerald Green
-          0.6: '#eab308', // Amber Yellow
-          0.8: '#f97316', // Bright Orange
-          1.0: '#ef4444'  // Deep Red Hotspot
-        }
+      const heatCircle = L.circle([lat, lon], {
+        radius: Math.max(1200, intensity * 4500),
+        color: heatColor,
+        fillColor: heatColor,
+        fillOpacity: 0.38,
+        stroke: false
       });
-      heat.addTo(map);
-      heatmapLayerRef.current = heat;
-    } else {
-      // Fallback: Custom Gradient Canvas Radius Overlay if heat plugin script is pending
-      filtered.forEach((cluster) => {
-        const { latitude, longitude, density_score, category, location_ward } = cluster;
+      heatCircle.addTo(markersGroupRef.current);
+    });
 
-        let color = '#38bdf8';
-        if (density_score >= 80) color = '#ef4444';
-        else if (density_score >= 60) color = '#f97316';
-        else if (density_score >= 40) color = '#eab308';
+    // B. Zoom Level >= 11: Render Interactive Public Complaint Markers with Category Badges
+    if (currentZoomLevel >= 11) {
+      filtered.forEach(c => {
+        const lat = c.lat || c.latitude;
+        const lon = c.lon || c.longitude;
+        const catKey = (c.category || 'OTHER').toUpperCase();
+        const catObj = CATEGORY_ICONS[catKey] || CATEGORY_ICONS.OTHER;
 
-        const circle = L.circle([latitude, longitude], {
-          radius: Math.max(1500, density_score * 50),
-          color: color,
-          fillColor: color,
-          fillOpacity: 0.35,
-          stroke: false
+        const customMarkerIcon = L.divIcon({
+          className: 'civic-map-marker',
+          html: `
+            <div style="
+              background: #090d16;
+              border: 2px solid ${catObj.color};
+              color: #ffffff;
+              border-radius: 20px;
+              padding: 4px 10px;
+              font-size: 0.72rem;
+              font-weight: 800;
+              display: flex;
+              align-items: center;
+              gap: 6px;
+              box-shadow: 0 4px 14px rgba(0,0,0,0.6), 0 0 10px ${catObj.color}80;
+              backdrop-filter: blur(8px);
+              transform: translate(-50%, -50%);
+            ">
+              <span>${catObj.icon}</span>
+              <span>${catObj.label}</span>
+            </div>
+          `,
+          iconSize: [110, 30],
+          iconAnchor: [55, 15]
         });
-        circle.addTo(markersGroupRef.current);
+
+        const marker = L.marker([lat, lon], { icon: customMarkerIcon });
+
+        const popupContent = `
+          <div style="font-family: system-ui, -apple-system, sans-serif; padding: 12px; min-width: 220px; background: #090d16; color: #f8fafc; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <span style="font-size: 0.7rem; font-weight: 800; padding: 2px 8px; border-radius: 4px; background: ${catObj.color}; color: #fff;">
+                ${catObj.label}
+              </span>
+              <span style="font-size: 0.72rem; color: #94a3b8;">${c.reports_count || 1} Reports</span>
+            </div>
+
+            <h4 style="margin: 4px 0 6px; font-size: 0.95rem; font-weight: 700; color: #f8fafc;">
+              ${c.location_ward || 'Ward Locality'}
+            </h4>
+
+            <div style="font-size: 0.78rem; color: #94a3b8; margin-bottom: 10px;">
+              Status: <strong style="color: ${c.status === 'RESOLVED' ? '#10b981' : '#f59e0b'};">${c.status || 'OPEN'}</strong>
+            </div>
+
+            <button
+              onclick="window.handleMapComplaintClick('${c.id}')"
+              style="width: 100%; padding: 6px 12px; background: #6366f1; color: #fff; border: none; border-radius: 6px; font-size: 0.78rem; font-weight: 700; cursor: pointer;"
+            >
+              View Complaint Details
+            </button>
+          </div>
+        `;
+
+        marker.bindPopup(popupContent, { className: 'custom-maplibre-popup' });
+        marker.addTo(markersGroupRef.current);
       });
     }
 
-    // 2. Render Sleek Professional Interactive Cluster Markers over Heatmap
-    filtered.forEach((cluster) => {
-      const { latitude, longitude, density_score, category, location_ward, reports } = cluster;
+  }, [clusters, categoryFilter, statusFilter, currentZoomLevel]);
 
-      let badgeBg = 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)';
-      let shadowColor = 'rgba(2, 132, 199, 0.6)';
-      let badgeLabel = 'LOW';
-
-      if (density_score >= 85) {
-        badgeBg = 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)';
-        shadowColor = 'rgba(239, 68, 68, 0.8)';
-        badgeLabel = 'CRITICAL';
-      } else if (density_score >= 70) {
-        badgeBg = 'linear-gradient(135deg, #f97316 0%, #c2410c 100%)';
-        shadowColor = 'rgba(249, 115, 22, 0.7)';
-        badgeLabel = 'HIGH';
-      } else if (density_score >= 50) {
-        badgeBg = 'linear-gradient(135deg, #eab308 0%, #a16207 100%)';
-        shadowColor = 'rgba(234, 179, 8, 0.6)';
-        badgeLabel = 'MEDIUM';
+  // Global Popup Button Listener
+  useEffect(() => {
+    window.handleMapComplaintClick = (issueId) => {
+      if (onViewDetails) {
+        onViewDetails({ id: issueId });
+      } else {
+        alert(`Opening details for Issue ID: ${issueId}`);
       }
+    };
+  }, [onViewDetails]);
 
-      // Professional Glassmorphism Map Badge Icon
-      const professionalIcon = L.divIcon({
-        className: 'pro-heat-marker',
-        html: `
-          <div style="
-            background: ${badgeBg};
-            color: #ffffff;
-            border: 2px solid rgba(255, 255, 255, 0.9);
-            border-radius: 20px;
-            padding: 4px 10px;
-            font-size: 0.72rem;
-            font-weight: 800;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            box-shadow: 0 4px 16px ${shadowColor}, 0 0 8px rgba(0,0,0,0.5);
-            white-space: nowrap;
-            cursor: pointer;
-            backdrop-filter: blur(4px);
-            transform: translate(-50%, -50%);
-          ">
-            <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#fff; box-shadow:0 0 6px #fff;"></span>
-            <span>${category}: ${density_score}%</span>
-          </div>
-        `,
-        iconSize: [110, 30],
-        iconAnchor: [55, 15]
-      });
-
-      const marker = L.marker([latitude, longitude], { icon: professionalIcon });
-
-      const popupHtml = `
-        <div style="font-family: system-ui, -apple-system, sans-serif; padding: 10px; min-width: 220px; background: #0f172a; color: #f8fafc; border-radius: 12px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-            <span style="font-size: 0.7rem; font-weight: 800; padding: 2px 8px; border-radius: 4px; background: ${badgeBg}; color: #fff;">
-              ${badgeLabel} DENSITY DANGER
-            </span>
-            <span style="font-size: 0.7rem; color: #94a3b8;">${reports || Math.floor(density_score/10)} Reports</span>
-          </div>
-
-          <h4 style="margin: 4px 0; font-size: 0.95rem; font-weight: 700; color: #38bdf8;">${category} DEFECT CLUSTER</h4>
-          <p style="margin: 2px 0 8px; font-size: 0.8rem; color: #cbd5e1;">📍 ${location_ward}</p>
-
-          <div style="background: rgba(255,255,255,0.06); padding: 8px; border-radius: 8px; font-size: 0.75rem; color: #94a3b8;">
-            Density Severity Score: <strong style="color: #f1f5f9;">${density_score}%</strong><br/>
-            SLA Impact Status: <strong style="color: #f87171;">Breach Risk High</strong>
-          </div>
-        </div>
-      `;
-
-      marker.bindPopup(popupHtml, { className: 'custom-leaflet-popup' });
-
-      marker.on('click', () => {
-        if (onViewDetails) {
-          onViewDetails({
-            id: `TN-HEAT-${location_ward.split(',')[0].toUpperCase().replace(/\s+/g, '-')}`,
-            title_en: `${category} Density Cluster (${density_score}% Severity Score)`,
-            location_ward: location_ward,
-            category: category,
-            status: 'OPEN',
-            supporters_count: density_score,
-            reports_count: reports || Math.floor(density_score / 10)
-          });
-        }
-      });
-
-      marker.addTo(markersGroupRef.current);
-    });
-
-  }, [clusters, categoryFilter, onViewDetails]);
+  // Zoom Controls & Current Location Trigger
+  const handleZoomIn = () => leafletMapRef.current?.zoomIn();
+  const handleZoomOut = () => leafletMapRef.current?.zoomOut();
+  
+  const handleCurrentLocation = () => {
+    if (navigator.geolocation && leafletMapRef.current) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          leafletMapRef.current.flyTo([pos.coords.latitude, pos.coords.longitude], 14);
+        },
+        () => alert('Unable to retrieve current location.')
+      );
+    }
+  };
 
   return (
-    <div className="glass-panel" style={{ padding: '24px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.12)' }}>
+    <div className="glass-panel" style={{ padding: '20px', borderRadius: '14px', position: 'relative' }}>
       
-      {/* Header Bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '18px' }}>
+      {/* MAP CONTROLS & FILTER HEADER */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
         <div>
-          <h3 style={{ fontSize: '1.25rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px', color: '#f8fafc' }}>
-            <BarChart2 size={24} color="#0ea5e9" />
-            <span>Tamil Nadu Geo-Spatial Civic Issue Heatmap</span>
+          <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Flame size={20} color="#f97316" />
+            <span>Civic Hotspot MapLibre Operations Engine</span>
           </h3>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-            Live Smooth Gaussian Heat Density Interpolation over Esri High-Resolution Satellite & OpenStreetMap Layers
+          <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+            Zoom Level: <strong>{currentZoomLevel}</strong> ({currentZoomLevel < 9 ? 'State View' : currentZoomLevel < 12 ? 'City View' : 'Ward / Marker View'}) | Privacy Preserved
           </p>
         </div>
 
-        {/* Professional Map Mode Switcher */}
-        <div style={{ display: 'flex', gap: '6px', background: 'rgba(15, 23, 42, 0.6)', padding: '4px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-          <button
-            onClick={() => setMapTileLayer('SATELLITE')}
-            className={`glass-btn ${mapTileLayer === 'SATELLITE' ? 'glass-btn-primary' : ''}`}
-            style={{ fontSize: '0.78rem', padding: '6px 14px', borderRadius: '8px' }}
-          >
-            <Satellite size={14} />
-            <span>Satellite</span>
-          </button>
+        {/* CONTROLS BAR */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          
+          {/* TILE SWITCHER */}
+          <div style={{ display: 'flex', background: '#090d16', padding: '3px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <button
+              onClick={() => setMapTileLayer('DARK')}
+              className={`glass-btn ${mapTileLayer === 'DARK' ? 'glass-btn-primary' : ''}`}
+              style={{ fontSize: '0.72rem', padding: '4px 8px', border: 'none' }}
+            >
+              Dark Map
+            </button>
+            <button
+              onClick={() => setMapTileLayer('SATELLITE')}
+              className={`glass-btn ${mapTileLayer === 'SATELLITE' ? 'glass-btn-primary' : ''}`}
+              style={{ fontSize: '0.72rem', padding: '4px 8px', border: 'none' }}
+            >
+              Satellite
+            </button>
+            <button
+              onClick={() => setMapTileLayer('STREET')}
+              className={`glass-btn ${mapTileLayer === 'STREET' ? 'glass-btn-primary' : ''}`}
+              style={{ fontSize: '0.72rem', padding: '4px 8px', border: 'none' }}
+            >
+              Streets
+            </button>
+          </div>
 
-          <button
-            onClick={() => setMapTileLayer('DARK')}
-            className={`glass-btn ${mapTileLayer === 'DARK' ? 'glass-btn-primary' : ''}`}
-            style={{ fontSize: '0.78rem', padding: '6px 14px', borderRadius: '8px' }}
-          >
-            <Flame size={14} color="#f97316" />
-            <span>Night Heatmap</span>
-          </button>
-
-          <button
-            onClick={() => setMapTileLayer('STREET')}
-            className={`glass-btn ${mapTileLayer === 'STREET' ? 'glass-btn-primary' : ''}`}
-            style={{ fontSize: '0.78rem', padding: '6px 14px', borderRadius: '8px' }}
-          >
-            <Globe size={14} />
-            <span>Street</span>
+          <button onClick={handleCurrentLocation} className="glass-btn" style={{ fontSize: '0.75rem', padding: '6px 10px' }} title="Current Location">
+            <Compass size={15} color="#38bdf8" />
+            <span>My Location</span>
           </button>
         </div>
       </div>
 
-      {/* Filter Category Pills */}
-      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
-        {['ALL', 'ROADS', 'GARBAGE', 'STREETLIGHT', 'WATER', 'DRAINAGE'].map(cat => (
-          <button
-            key={cat}
-            onClick={() => setCategoryFilter(cat)}
-            className={`glass-btn ${categoryFilter === cat ? 'glass-btn-primary' : ''}`}
-            style={{ fontSize: '0.78rem', padding: '6px 14px', borderRadius: '20px' }}
-          >
-            {cat === 'ALL' ? 'All Defect Clusters' : cat}
-          </button>
-        ))}
+      {/* CATEGORY & STATUS FILTER BAR */}
+      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '14px', alignItems: 'center' }}>
+        <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>Category:</span>
+        <select className="glass-input" style={{ width: 'auto', fontSize: '0.78rem', padding: '4px 8px' }} value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
+          <option value="ALL">All Categories</option>
+          <option value="ROADS">Roads & Potholes</option>
+          <option value="GARBAGE">Garbage & Sanitation</option>
+          <option value="STREETLIGHTS">Streetlights</option>
+          <option value="DRAINAGE">Drainage & Flooding</option>
+          <option value="WATER">Water Supply</option>
+          <option value="FOOTPATH">Footpath</option>
+          <option value="PARKS">Parks</option>
+          <option value="SAFETY">Public Safety</option>
+        </select>
+
+        <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', marginLeft: '8px' }}>Status:</span>
+        <select className="glass-input" style={{ width: 'auto', fontSize: '0.78rem', padding: '4px 8px' }} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+          <option value="ALL">All Statuses</option>
+          <option value="OPEN">Open</option>
+          <option value="IN_PROGRESS">In Progress</option>
+          <option value="RESOLVED">Resolved</option>
+        </select>
       </div>
 
-      {/* Leaflet Real Map Container */}
-      <div
-        ref={mapContainerRef}
-        style={{
-          height: '520px',
-          width: '100%',
-          borderRadius: '16px',
-          border: '2px solid rgba(255,255,255,0.15)',
-          boxShadow: '0 12px 40px rgba(0,0,0,0.6)',
-          overflow: 'hidden',
-          position: 'relative',
-          zIndex: 1
-        }}
-      />
+      {/* INTERACTIVE MAP CONTAINER */}
+      <div style={{ position: 'relative', width: '100%', height: '480px', borderRadius: '10px', overflow: 'hidden', border: '1px solid rgba(255, 255, 255, 0.12)' }}>
+        <div ref={mapContainerRef} style={{ width: '100%', height: '100%', background: '#090d16' }} />
 
-      {/* Professional Gradient Legend & Privacy Note */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', flexWrap: 'wrap', gap: '12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-          <ShieldCheck size={16} color="#10b981" />
-          <span>Differential Privacy Grid Aggregation — Zero Citizen PII Exposed</span>
+        {/* MAP ZOOM CONTROLS OVERLAY */}
+        <div style={{ position: 'absolute', bottom: '20px', right: '20px', zIndex: 1000, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <button onClick={handleZoomIn} className="glass-btn glass-btn-primary" style={{ padding: '8px 12px', fontSize: '1rem', fontWeight: 800 }}>+</button>
+          <button onClick={handleZoomOut} className="glass-btn glass-btn-primary" style={{ padding: '8px 12px', fontSize: '1rem', fontWeight: 800 }}>-</button>
         </div>
 
-        {/* Heat Density Gradient Legend Bar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Low Density</span>
-          <div style={{
-            width: '140px',
-            height: '10px',
-            borderRadius: '6px',
-            background: 'linear-gradient(90deg, #0284c7 0%, #10b981 30%, #eab308 60%, #f97316 85%, #ef4444 100%)',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.4)'
-          }} />
-          <span style={{ fontSize: '0.75rem', color: '#ef4444', fontWeight: 700 }}>Critical Hotspot</span>
+        {/* DENSITY LEGEND OVERLAY */}
+        <div style={{ position: 'absolute', bottom: '20px', left: '20px', zIndex: 1000, background: 'rgba(9, 13, 22, 0.88)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '8px', padding: '10px 14px', fontSize: '0.75rem' }}>
+          <div style={{ fontWeight: 800, color: '#f8fafc', marginBottom: '6px' }}>Complaint Heatmap Density:</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ color: '#ef4444', fontWeight: 700 }}>🔴 Critical</span>
+            <span style={{ color: '#f97316', fontWeight: 700 }}>🟠 High</span>
+            <span style={{ color: '#eab308', fontWeight: 700 }}>🟡 Moderate</span>
+            <span style={{ color: '#38bdf8', fontWeight: 700 }}>🟢 Low</span>
+          </div>
         </div>
       </div>
     </div>

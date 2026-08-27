@@ -1,5 +1,5 @@
 from datetime import datetime, timezone, timedelta
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -24,13 +24,11 @@ def run_sarvam_and_ai_categorization_pipelines(issue: Issue, db: Session):
         voice_url = issue.voice_url
         lang = issue.original_language or "Tamil"
 
-        # 1. Voice Processing Pipeline
         voice_transcript = None
         if voice_url:
             voice_transcript, _ = sarvam_service.speech_to_text(voice_url, language=lang)
             issue.voice_transcript = voice_transcript
 
-        # 2. Text Translation Pipeline
         text_to_translate = orig_text if orig_text else (voice_transcript if voice_transcript else "")
         if text_to_translate:
             if lang != "English":
@@ -42,7 +40,6 @@ def run_sarvam_and_ai_categorization_pipelines(issue: Issue, db: Session):
         issue.description = processed_text
         issue.language_processing_status = "COMPLETED"
 
-        # 3. Module 6 Gemini AI Categorization Pipeline
         ai_res = categorization_service.categorize_issue(
             image_url=issue.media_url,
             text_description=processed_text,
@@ -58,7 +55,6 @@ def run_sarvam_and_ai_categorization_pipelines(issue: Issue, db: Session):
         issue.ai_processed_at = datetime.now(timezone.utc)
         issue.ai_model_name = "gemini-2.5-flash"
         
-        # Calculate SLA deadline based on AI Severity
         deadline, policy_id = sla_engine.calculate_deadline(ai_res["severity"], issue.sla_started_at or datetime.now(timezone.utc))
         issue.sla_deadline = deadline
         issue.sla_policy_id = policy_id
@@ -70,8 +66,6 @@ def run_sarvam_and_ai_categorization_pipelines(issue: Issue, db: Session):
 
         db.commit()
         db.refresh(issue)
-
-        # 4. Module 7 Multi-Signal Duplicate Detection Evaluation
         deduplication_engine.evaluate_and_link_duplicate(issue, db)
 
     except Exception as e:
@@ -86,13 +80,11 @@ def create_issue(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Module 3, 4, 5, 6, 7 & 10 Intake Endpoint."""
     if payload.offline_submission_id and payload.offline_submission_id.strip():
         existing = db.query(Issue).filter(Issue.offline_submission_id == payload.offline_submission_id.strip()).first()
         if existing:
             return existing
 
-    # File Security & Magic Byte Header Validation
     if payload.media_url:
         file_security_service.validate_base64_media(payload.media_url)
     if payload.voice_url:
@@ -123,7 +115,6 @@ def create_issue(
     raw_description = payload.description.strip() if payload.description else None
     orig_lang = payload.language or current_user.preferred_language or "English"
 
-    # Module 10 Anti-Spam & Abuse Score Calculator
     abuse_eval = abuse_protection_service.calculate_spam_and_abuse_score(raw_description or "")
     review_status = "AUTO_APPROVED"
     if abuse_eval["spam_score"] > 0.60 or abuse_eval["abuse_score"] > 0.60:
@@ -132,7 +123,6 @@ def create_issue(
     start_time = datetime.now(timezone.utc)
     initial_deadline, policy_id = sla_engine.calculate_deadline("NORMAL", start_time)
 
-    # Route automatically to demo officer OFF001 if created by officer or unassigned
     default_officer = db.query(User).filter(User.officer_id == "OFF001").first()
     officer_id_to_assign = default_officer.id if default_officer else None
 
@@ -188,9 +178,18 @@ def get_public_nearby_issues(
     lat: float = 13.0827,
     lon: float = 80.2707,
     radius_km: float = 5.0,
+    category: Optional[str] = None,
+    status_filter: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    all_issues = db.query(Issue).filter(Issue.is_duplicate == False).all()
+    """Module 5 Server-Side Filtered Viewport Query for Public Markers (No PII)."""
+    query = db.query(Issue).filter(Issue.is_duplicate == False)
+    if category and category.upper() != "ALL":
+        query = query.filter(Issue.ai_category == category.upper())
+    if status_filter and status_filter.upper() != "ALL":
+        query = query.filter(Issue.status == status_filter.upper())
+        
+    all_issues = query.all()
     nearby = []
     for issue in all_issues:
         dist_m = haversine_distance_meters(lat, lon, issue.latitude, issue.longitude)
@@ -199,8 +198,19 @@ def get_public_nearby_issues(
     return nearby
 
 @router.get("/heatmap-clusters")
-def get_heatmap_clusters(db: Session = Depends(get_db)):
-    issues = db.query(Issue).all()
+def get_heatmap_clusters(
+    category: Optional[str] = None,
+    status_filter: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """Module 5 Heatmap Aggregation Endpoint (Anonymized PII protection)."""
+    query = db.query(Issue).filter(Issue.is_duplicate == False)
+    if category and category.upper() != "ALL":
+        query = query.filter(Issue.ai_category == category.upper())
+    if status_filter and status_filter.upper() != "ALL":
+        query = query.filter(Issue.status == status_filter.upper())
+
+    issues = query.all()
     points = []
     for i in issues:
         points.append({
@@ -208,9 +218,11 @@ def get_heatmap_clusters(db: Session = Depends(get_db)):
             "category": i.ai_category or "ROADS",
             "lat": i.latitude,
             "lon": i.longitude,
-            "intensity": 0.8 if i.ai_severity == "CRITICAL" else 0.6,
+            "intensity": 0.9 if i.ai_severity == "CRITICAL" else 0.7 if i.ai_severity == "HIGH" else 0.5,
             "ward": i.location_ward,
-            "status": i.status
+            "status": i.status,
+            "reports_count": i.reports_count,
+            "created_at": i.created_at.isoformat()
         })
     return points
 
