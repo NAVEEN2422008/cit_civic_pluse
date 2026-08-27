@@ -249,3 +249,17 @@ def verify_resolution(
 
     db.commit()
     return StandardResponse(success=True, message=f"Verification status updated to {issue.citizen_confirmation_status}")
+
+@router.post("/{issue_id}/support", response_model=StandardResponse)
+def support_public_issue(
+    issue_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    issue = db.query(Issue).filter(Issue.id == issue_id).first()
+    if not issue:
+        raise HTTPException(status_code=404, detail="Issue not found")
+        
+    issue.supporters_count += 1
+    db.commit()
+    return StandardResponse(success=True, message="Thank you for supporting this community civic issue!", data={"supporters_count": issue.supporters_count})

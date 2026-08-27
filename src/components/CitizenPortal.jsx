@@ -58,6 +58,15 @@ export default function CitizenPortal({ lang, complaints = [], setComplaints, us
     }
   };
 
+  const handleSupportIssue = (complaintId) => {
+    setComplaints(prev => prev.map(c => c.id === complaintId ? { 
+      ...c, 
+      reporterCount: (c.reporterCount || c.supporters_count || 1) + 1,
+      supporters_count: (c.supporters_count || c.reporterCount || 1) + 1
+    } : c));
+    alert(`Thank you! Your community support (+1) for ticket ${complaintId} has been recorded.`);
+  };
+
   const handleReopenSubmit = async (e) => {
     e.preventDefault();
     setReopenError('');
@@ -251,14 +260,28 @@ export default function CitizenPortal({ lang, complaints = [], setComplaints, us
                           </div>
                         </div>
 
-                        <button
-                          onClick={() => setSelectedComplaint(comp)}
-                          className="glass-btn glass-btn-primary"
-                          style={{ justifyContent: 'center', fontSize: '0.8rem', width: '100%' }}
-                        >
-                          <Eye size={15} />
-                          <span>View Progress</span>
-                        </button>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button
+                            onClick={() => setSelectedComplaint(comp)}
+                            className="glass-btn glass-btn-primary"
+                            style={{ flex: 1, justifyContent: 'center', fontSize: '0.8rem' }}
+                          >
+                            <Eye size={15} />
+                            <span>View Progress</span>
+                          </button>
+
+                          {selectedSection === 'public' && (
+                            <button
+                              onClick={() => handleSupportIssue(comp.id)}
+                              className="glass-btn"
+                              style={{ fontSize: '0.8rem', borderColor: '#38bdf8', color: '#38bdf8' }}
+                              title="Support this community issue"
+                            >
+                              <ThumbsUp size={15} />
+                              <span>+1 Support</span>
+                            </button>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>

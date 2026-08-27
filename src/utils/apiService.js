@@ -11,6 +11,10 @@ export const apiService = {
     localStorage.removeItem('civicpulse_access_token');
     localStorage.removeItem('civicpulse_refresh_token');
   },
+  removeToken: () => {
+    localStorage.removeItem('civicpulse_access_token');
+    localStorage.removeItem('civicpulse_refresh_token');
+  },
 
   // 1. Request Email OTP
   requestOtp: async (email) => {

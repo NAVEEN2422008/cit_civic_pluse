@@ -62,7 +62,7 @@ export default function App() {
           setAuthStep('app');
         }
       } catch (e) {
-        apiService.removeToken();
+        apiService.clearTokens();
         setIsAuthenticated(false);
       }
     };
@@ -85,11 +85,12 @@ export default function App() {
   };
 
   const handleLogout = () => {
-    apiService.removeToken();
+    apiService.clearTokens();
     setIsAuthenticated(false);
     setUserProfile(null);
     setAuthStep('login');
     setActiveRole('CITIZEN');
+    setActiveTab('home');
   };
 
   const handleNewComplaintCreated = (newIssue) => {
