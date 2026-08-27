@@ -13,6 +13,7 @@ from app.services.verification_service import verification_service
 from app.services.abuse_protection_service import abuse_protection_service
 from app.services.file_security_service import file_security_service
 from app.services.deduplication_service import haversine_distance_meters
+from app.services.sla_engine import sla_engine
 
 router = APIRouter(prefix="/issues", tags=["Civic Issues Intake & Resolution"])
 
@@ -23,10 +24,8 @@ def run_sarvam_and_ai_categorization_pipelines(issue: Issue, db: Session):
         voice_url = issue.voice_url
         lang = issue.original_language or "Tamil"
 
+        # 1. Voice Processing Pipeline
         voice_transcript = None
-        processed_text = orig_text
-
-        # 1. Voice STT Pipeline
         if voice_url:
             voice_transcript, _ = sarvam_service.speech_to_text(voice_url, language=lang)
             issue.voice_transcript = voice_transcript
@@ -59,6 +58,11 @@ def run_sarvam_and_ai_categorization_pipelines(issue: Issue, db: Session):
         issue.ai_processed_at = datetime.now(timezone.utc)
         issue.ai_model_name = "gemini-2.5-flash"
         
+        # Calculate SLA deadline based on AI Severity
+        deadline, policy_id = sla_engine.calculate_deadline(ai_res["severity"], issue.sla_started_at or datetime.now(timezone.utc))
+        issue.sla_deadline = deadline
+        issue.sla_policy_id = policy_id
+
         if ai_res["confidence"] < 0.70:
             issue.ai_review_status = "AI_REVIEW_REQUIRED"
         else:
@@ -125,9 +129,17 @@ def create_issue(
     if abuse_eval["spam_score"] > 0.60 or abuse_eval["abuse_score"] > 0.60:
         review_status = "SPAM_SUSPECTED"
 
+    start_time = datetime.now(timezone.utc)
+    initial_deadline, policy_id = sla_engine.calculate_deadline("NORMAL", start_time)
+
+    # Route automatically to demo officer OFF001 if created by officer or unassigned
+    default_officer = db.query(User).filter(User.officer_id == "OFF001").first()
+    officer_id_to_assign = default_officer.id if default_officer else None
+
     new_issue = Issue(
         offline_submission_id=payload.offline_submission_id.strip() if payload.offline_submission_id else None,
         reporter_id=current_user.id,
+        assigned_officer_id=officer_id_to_assign,
         original_description=raw_description,
         description=raw_description,
         original_language=orig_lang,
@@ -148,7 +160,11 @@ def create_issue(
         abuse_score=abuse_eval["abuse_score"],
         is_duplicate=False,
         reports_count=1,
-        supporters_count=1
+        supporters_count=1,
+        sla_started_at=start_time,
+        sla_deadline=initial_deadline,
+        sla_policy_id=policy_id,
+        sla_status="ON_TIME"
     )
 
     db.add(new_issue)
@@ -161,178 +177,63 @@ def create_issue(
         db,
         event_type="ISSUE_CREATED",
         user_id=current_user.id,
-        details=f"Issue {new_issue.id} created.",
+        details=f"Issue {new_issue.id} created and routed to Officer OFF001.",
         ip_address=request.client.host
     )
 
     return new_issue
 
-# --- MODULE 10 PUBLIC SUPPORT ABUSE ENDPOINT ---
-
-@router.post("/{issue_id}/support", response_model=StandardResponse)
-def support_public_issue(
-    issue_id: str,
-    request: Request,
-    current_user: User = Depends(get_current_user),
+@router.get("/public-nearby", response_model=List[IssueResponse])
+def get_public_nearby_issues(
+    lat: float = 13.0827,
+    lon: float = 80.2707,
+    radius_km: float = 5.0,
     db: Session = Depends(get_db)
 ):
-    """
-    Public Support Action. Prevents one account/device from repeatedly supporting the same issue.
-    """
-    issue = db.query(Issue).filter(Issue.id == issue_id).first()
-    if not issue:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Issue not found")
+    all_issues = db.query(Issue).filter(Issue.is_duplicate == False).all()
+    nearby = []
+    for issue in all_issues:
+        dist_m = haversine_distance_meters(lat, lon, issue.latitude, issue.longitude)
+        if dist_m <= radius_km * 1000.0:
+            nearby.append(issue)
+    return nearby
 
-    existing_support = db.query(IssueSupport).filter(
-        IssueSupport.issue_id == issue_id,
-        IssueSupport.user_id == current_user.id
-    ).first()
+@router.get("/heatmap-clusters")
+def get_heatmap_clusters(db: Session = Depends(get_db)):
+    issues = db.query(Issue).all()
+    points = []
+    for i in issues:
+        points.append({
+            "id": i.id,
+            "category": i.ai_category or "ROADS",
+            "lat": i.latitude,
+            "lon": i.longitude,
+            "intensity": 0.8 if i.ai_severity == "CRITICAL" else 0.6,
+            "ward": i.location_ward,
+            "status": i.status
+        })
+    return points
 
-    if existing_support:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="You have already supported this complaint. Duplicate votes from the same account are not permitted."
-        )
-
-    new_support = IssueSupport(issue_id=issue_id, user_id=current_user.id)
-    db.add(new_support)
-
-    issue.supporters_count += 1
-    db.commit()
-
-    log_audit_event(
-        db,
-        event_type="PUBLIC_SUPPORT_ADDED",
-        user_id=current_user.id,
-        details=f"User supported issue {issue_id}.",
-        ip_address=request.client.host
-    )
-
-    return StandardResponse(success=True, message="Your support for this issue has been recorded.")
-
-# --- MODULE 9 RESOLUTION & VERIFICATION ENDPOINTS ---
-
-@router.post("/{issue_id}/confirm-resolution", response_model=IssueResponse)
-def confirm_resolution(
-    issue_id: str,
-    request: Request,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Citizen confirms resolution -> Sets citizen_confirmation_status = CONFIRMED & status = CLOSED."""
-    issue = db.query(Issue).filter(Issue.id == issue_id).first()
-    if not issue:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Issue not found")
-
-    issue.citizen_confirmation_status = "CONFIRMED"
-    issue.status = "CLOSED"
-    issue.updated_at = datetime.now(timezone.utc)
-
-    db.commit()
-    db.refresh(issue)
-
-    log_audit_event(
-        db,
-        event_type="RESOLUTION_CONFIRMED",
-        user_id=current_user.id,
-        details=f"Citizen confirmed resolution for {issue.id}. Status moved to CLOSED.",
-        ip_address=request.client.host
-    )
-
-    return issue
-
-@router.post("/{issue_id}/reopen", response_model=IssueResponse)
-def reopen_issue(
-    issue_id: str,
-    payload: ReopenRequest,
-    request: Request,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Citizen reopens resolved complaint. Requires mandatory reason & proof photo.
-    Runs AI verification scoring.
-    """
-    issue = db.query(Issue).filter(Issue.id == issue_id).first()
-    if not issue:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Issue not found")
-
-    if not payload.reason or len(payload.reason.strip()) < 5:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Reopen reason is mandatory (min 5 chars).")
-
-    if not payload.proof_photo or len(payload.proof_photo.strip()) < 10:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Proof photo image evidence is mandatory to reopen.")
-
-    # Execute AI Reopen Proof Verification
-    ai_verify = verification_service.verify_reopen_evidence(
-        before_photo=issue.media_url,
-        officer_after_photo=issue.resolution_after_photo,
-        reopen_proof_photo=payload.proof_photo,
-        reopen_reason=payload.reason
-    )
-
-    issue.citizen_confirmation_status = "REOPENED"
-    issue.status = "REOPEN_REQUESTED"
-    issue.reopen_reason = payload.reason.strip()
-    issue.reopen_proof_photo = payload.proof_photo.strip()
-    issue.verification_score = ai_verify["verification_score"]
-    issue.verification_reason = ai_verify["verification_reason"]
-    issue.verification_status = ai_verify["verification_status"]
-    issue.updated_at = datetime.now(timezone.utc)
-
-    db.commit()
-    db.refresh(issue)
-
-    log_audit_event(
-        db,
-        event_type="ISSUE_REOPENED",
-        user_id=current_user.id,
-        details=f"Issue {issue.id} reopened by citizen (AI Score: {issue.verification_score}).",
-        ip_address=request.client.host
-    )
-
-    return issue
-
-@router.post("/{issue_id}/trigger-15day-rule", response_model=IssueResponse)
-def trigger_15day_rule(
-    issue_id: str,
-    db: Session = Depends(get_db)
-):
-    """Simulates 15-day inactivity rule -> Transition to PUBLIC_VERIFICATION_AVAILABLE."""
-    issue = db.query(Issue).filter(Issue.id == issue_id).first()
-    if not issue:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Issue not found")
-
-    issue.public_verification_eligible = True
-    issue.status = "PUBLIC_VERIFICATION_AVAILABLE"
-    db.commit()
-    db.refresh(issue)
-    return issue
-
-@router.post("/{issue_id}/public-verify", response_model=StandardResponse)
-def public_verify_vote(
+@router.post("/{issue_id}/verify-resolution", response_model=StandardResponse)
+def verify_resolution(
     issue_id: str,
     payload: PublicVerifyVoteRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Public verification vote by verified nearby citizens.
-    Guards: verified identity + geographic proximity check (<= 2 km).
-    """
     issue = db.query(Issue).filter(Issue.id == issue_id).first()
     if not issue:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Issue not found")
+        raise HTTPException(status_code=404, detail="Issue not found")
 
-    if not current_user.identity_verified:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only verified Aadhaar identity citizens can vote.")
+    if payload.confirmed:
+        issue.citizen_confirmation_status = "CONFIRMED"
+        issue.status = "RESOLVED"
+        issue.workflow_state = "CLOSED"
+    else:
+        issue.citizen_confirmation_status = "REOPENED"
+        issue.status = "OPEN"
+        issue.workflow_state = "ASSIGNED"
+        issue.reopen_reason = payload.note
 
-    dist = haversine_distance_meters(payload.latitude, payload.longitude, issue.latitude, issue.longitude)
-    if dist > 2000.0: # 2 km limit
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You must be within 2 km geographic proximity to participate in public verification.")
-
-    if payload.vote == "CONFIRM":
-        issue.supporters_count += 1
-        db.commit()
-
-    return StandardResponse(success=True, message=f"Public verification vote ({payload.vote}) recorded successfully.")
+    db.commit()
+    return StandardResponse(success=True, message=f"Verification status updated to {issue.citizen_confirmation_status}")

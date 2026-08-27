@@ -79,6 +79,14 @@ class StandardResponse(BaseModel):
     message: str
     data: Optional[Dict] = None
 
+# SLA Policy & Pause Schemas
+class SLAPauseRequest(BaseModel):
+    pause_reason: str # AWAITING_APPROVAL, AWAITING_EXTERNAL_AGENCY, COURT_HOLD, NATURAL_DISASTER, MATERIAL_UNAVAILABLE
+    notes: Optional[str] = None
+
+class SLAModeRequest(BaseModel):
+    is_demo_mode: bool
+
 # Officer Portal Action Requests
 class AcceptTaskRequest(BaseModel):
     notes: Optional[str] = None

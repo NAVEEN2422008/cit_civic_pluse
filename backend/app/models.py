@@ -26,7 +26,7 @@ class User(Base):
     identity_reference = Column(String, nullable=True, index=True)
     role = Column(String, default="CITIZEN", nullable=False) # CITIZEN, OFFICER, SUPERVISOR, ADMIN
     account_status = Column(String, default="ACTIVE", nullable=False) # ACTIVE, PENDING, SUSPENDED
-    account_reputation = Column(Float, default=1.0, nullable=False) # 0.0 to 1.0
+    account_reputation = Column(Float, default=1.0, nullable=False)
     device_reputation = Column(Float, default=1.0, nullable=False)
     password_hash = Column(String, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
@@ -59,7 +59,39 @@ class IssueSupport(Base):
     user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
-# --- MODULE 2 OFFICER WORKFLOW & INSPECTIONS ---
+# --- MODULE 3 SLA POLICIES & ESCALATIONS ---
+class SLAPolicy(Base):
+    __tablename__ = "sla_policies"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    severity_level = Column(String, unique=True, nullable=False) # CRITICAL, HIGH, NORMAL, LOW
+    resolution_days = Column(Integer, nullable=False)
+    demo_resolution_minutes = Column(Integer, default=2, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+class EscalationRecord(Base):
+    __tablename__ = "escalation_records"
+
+    escalation_id = Column(String, primary_key=True, default=generate_uuid)
+    issue_id = Column(String, ForeignKey("issues.id"), nullable=False, index=True)
+    from_officer_id = Column(String, nullable=True)
+    to_officer_id = Column(String, nullable=False)
+    level = Column(Integer, default=1, nullable=False)
+    reason = Column(String, default="SLA automatically breached.", nullable=False)
+    triggered_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    status = Column(String, default="ESCALATED", nullable=False)
+
+class SLAPauseLog(Base):
+    __tablename__ = "sla_pause_logs"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    issue_id = Column(String, ForeignKey("issues.id"), nullable=False, index=True)
+    officer_id = Column(String, nullable=False)
+    pause_reason = Column(String, nullable=False) # AWAITING_APPROVAL, AWAITING_EXTERNAL_AGENCY, COURT_HOLD, NATURAL_DISASTER, MATERIAL_UNAVAILABLE
+    notes = Column(Text, nullable=True)
+    paused_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    resumed_at = Column(DateTime, nullable=True)
+
 class SiteInspection(Base):
     __tablename__ = "site_inspections"
 
@@ -144,8 +176,16 @@ class Issue(Base):
     available_department_budget = Column(Float, default=500000.0, nullable=False)
     budget_approval_notes = Column(Text, nullable=True)
     
+    # Module 3 Automatic SLA Engine Fields
+    sla_started_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     sla_deadline = Column(DateTime, nullable=True)
-    escalation_status = Column(String, default="NONE", nullable=False)
+    sla_policy_id = Column(String, nullable=True)
+    sla_status = Column(String, default="ON_TIME", nullable=False) # ON_TIME, WARNING, BREACHED, ESCALATED, PAUSED
+    sla_paused = Column(Boolean, default=False, nullable=False)
+    sla_pause_reason = Column(String, nullable=True)
+    
+    escalation_level = Column(Integer, default=0, nullable=False)
+    escalation_status = Column(String, default="NONE", nullable=False) # NONE, WARNING_APPROACHING, BREACHED_AUTO_ESCALATED
 
     # Module 9 Resolution & Verification Fields
     resolution_before_photo = Column(Text, nullable=True)

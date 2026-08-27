@@ -3,13 +3,14 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import User, Issue, SiteInspection, WorkOrder, AuditLog
+from app.models import User, Issue, SiteInspection, WorkOrder, SLAPauseLog, EscalationRecord, AuditLog
 from app.schemas import (
     AcceptTaskRequest, SiteInspectionRequest, BudgetApprovalRequest,
     BudgetDecisionRequest, CreateWorkOrderRequest, UpdateWorkProgressRequest,
-    ResolutionEvidenceRequest, StandardResponse
+    ResolutionEvidenceRequest, SLAPauseRequest, SLAModeRequest, StandardResponse
 )
 from app.security import get_current_user, require_roles, log_audit_event
+from app.services.sla_engine import sla_engine
 
 router = APIRouter(prefix="/officer", tags=["Officer Portal Operations"])
 
@@ -35,14 +36,9 @@ def get_officer_dashboard(
     db: Session = Depends(get_db)
 ):
     """Retrieves Officer operational workspace cards and assigned complaints list."""
-    query = db.query(Issue)
-    if current_user.role == "OFFICER":
-        # Filter by department or assigned officer
-        query = query.filter(Issue.assigned_officer_id == current_user.id)
+    issues = db.query(Issue).all()
     
-    issues = query.all()
-    
-    # Calculate operational metrics
+    # Calculate operational metrics using SLA Engine
     new_assignments = sum(1 for i in issues if i.workflow_state in ["ASSIGNED", "ACCEPTED"])
     high_priority = sum(1 for i in issues if i.ai_severity in ["HIGH", "CRITICAL"])
     in_progress = sum(1 for i in issues if i.workflow_state in ["IN_PROGRESS", "WORK_ORDER_CREATED"])
@@ -52,13 +48,16 @@ def get_officer_dashboard(
 
     formatted_issues = []
     for issue in issues:
-        # Calculate automatic escalation display status
-        esc_status = "None"
-        if issue.sla_deadline:
-            if issue.sla_deadline < datetime.now(timezone.utc):
-                esc_status = "Breached (Supervisor Notified)"
-            elif issue.sla_deadline <= datetime.now(timezone.utc) + timedelta(days=2):
-                esc_status = "Warning (2 Days Remaining)"
+        sla_calc = sla_engine.calculate_sla_metrics(issue)
+        
+        if sla_calc["status"] == "PAUSED":
+            esc_display = f"⏸️ PAUSED ({issue.sla_pause_reason})"
+        elif sla_calc["is_breached"]:
+            esc_display = f"🚨 AUTO-ESCALATED (Level {issue.escalation_level})"
+        elif sla_calc["status"] == "WARNING":
+            esc_display = f"⚠️ APPROACHING DEADLINE ({sla_calc['time_remaining_str']})"
+        else:
+            esc_display = f"✅ ON TIME ({sla_calc['time_remaining_str']})"
 
         formatted_issues.append({
             "id": issue.id,
@@ -79,8 +78,13 @@ def get_officer_dashboard(
             "budget_status": issue.budget_status,
             "estimated_cost": issue.estimated_cost,
             "available_budget": issue.available_department_budget,
-            "sla_deadline": issue.sla_deadline.isoformat() if issue.sla_deadline else (datetime.now(timezone.utc) + timedelta(days=3)).isoformat(),
-            "escalation_display": esc_status,
+            "sla_started_at": issue.sla_started_at.isoformat() if issue.sla_started_at else None,
+            "sla_deadline": issue.sla_deadline.isoformat() if issue.sla_deadline else None,
+            "sla_status": sla_calc["status"],
+            "sla_time_remaining": sla_calc["time_remaining_str"],
+            "sla_percentage_elapsed": sla_calc["percentage_elapsed"],
+            "escalation_level": issue.escalation_level,
+            "escalation_display": esc_display,
             "created_at": issue.created_at.isoformat()
         })
 
@@ -103,11 +107,91 @@ def get_officer_dashboard(
                 "overdue": overdue,
                 "completed": completed
             },
+            "sla_mode": {
+                "is_demo_mode": sla_engine.is_demo_mode,
+                "active_policy_summary": "Demo Policy: 2 Mins for Critical/High, 5 Mins for Normal/Low" if sla_engine.is_demo_mode else "Real Policy: 15 Days for Critical/High, 30 Days for Normal/Low"
+            },
             "assigned_complaints": formatted_issues
         }
     )
 
-# 2. ACCEPT TASK
+# 2. SUPERVISOR ESCALATED COMPLAINTS VIEW
+@router.get("/supervisor/escalations", response_model=StandardResponse)
+def get_supervisor_escalated_complaints(
+    current_user: User = Depends(require_roles(["SUPERVISOR", "ADMIN"])),
+    db: Session = Depends(get_db)
+):
+    escalations = db.query(EscalationRecord).all()
+    records = []
+    for esc in escalations:
+        issue = db.query(Issue).filter(Issue.id == esc.issue_id).first()
+        records.append({
+            "escalation_id": esc.escalation_id,
+            "issue_id": esc.issue_id,
+            "from_officer_id": esc.from_officer_id,
+            "to_officer_id": esc.to_officer_id,
+            "level": esc.level,
+            "reason": esc.reason,
+            "triggered_at": esc.triggered_at.isoformat(),
+            "issue_category": issue.ai_category if issue else "Infrastructure",
+            "issue_status": issue.status if issue else "UNKNOWN"
+        })
+    return StandardResponse(success=True, message="Supervisor escalation dashboard loaded.", data={"escalated_records": records})
+
+# 3. SLA PAUSE ENDPOINT (AUDITED)
+@router.post("/issues/{issue_id}/pause-sla", response_model=StandardResponse)
+def pause_issue_sla(
+    issue_id: str,
+    payload: SLAPauseRequest,
+    current_user: User = Depends(require_roles(["OFFICER", "SUPERVISOR", "ADMIN"])),
+    db: Session = Depends(get_db)
+):
+    issue = db.query(Issue).filter(Issue.id == issue_id).first()
+    if not issue:
+        raise HTTPException(status_code=404, detail="Issue not found")
+
+    issue.sla_paused = True
+    issue.sla_pause_reason = payload.pause_reason
+    issue.sla_status = "PAUSED"
+
+    pause_log = SLAPauseLog(
+        issue_id=issue.id,
+        officer_id=current_user.id,
+        pause_reason=payload.pause_reason,
+        notes=payload.notes
+    )
+    db.add(pause_log)
+    db.commit()
+
+    log_officer_action(db, current_user, "SLA_PAUSED", issue.id, "ACTIVE", "PAUSED", f"Reason: {payload.pause_reason}")
+
+    return StandardResponse(success=True, message=f"SLA timer paused. Reason: {payload.pause_reason}")
+
+# 4. ADMIN DEMO CLOCK TOGGLE ENDPOINT
+@router.post("/sla/configure-mode", response_model=StandardResponse)
+def configure_sla_demo_mode(
+    payload: SLAModeRequest,
+    current_user: User = Depends(require_roles(["ADMIN"])),
+    db: Session = Depends(get_db)
+):
+    sla_engine.is_demo_mode = payload.is_demo_mode
+    return StandardResponse(
+        success=True,
+        message=f"SLA Engine mode updated to {'DEMO MODE (Shortened 2-min Clock)' if payload.is_demo_mode else 'REAL PRODUCTION MODE (15/30 Days)'}."
+    )
+
+# 5. IDEMPOTENT BACKGROUND JOB ESCALATION TRIGGER
+@router.post("/sla/trigger-background-escalation", response_model=StandardResponse)
+def trigger_background_sla_escalation(
+    db: Session = Depends(get_db)
+):
+    escalated_count = sla_engine.evaluate_and_escalate_issues(db)
+    return StandardResponse(
+        success=True,
+        message=f"SLA Background Job executed successfully. {escalated_count} issue(s) automatically escalated."
+    )
+
+# --- WORKFLOW ACTION ENDPOINTS ---
 @router.post("/issues/{issue_id}/accept", response_model=StandardResponse)
 def accept_task(
     issue_id: str,
@@ -115,20 +199,19 @@ def accept_task(
     current_user: User = Depends(require_roles(["OFFICER", "SUPERVISOR", "ADMIN"])),
     db: Session = Depends(get_db)
 ):
-    """Officer accepts assigned task."""
     issue = db.query(Issue).filter(Issue.id == issue_id).first()
     if not issue:
         raise HTTPException(status_code=404, detail="Issue not found")
         
     prev = issue.workflow_state
     issue.workflow_state = "ACCEPTED"
+    issue.assigned_officer_id = current_user.id
     db.commit()
     
     log_officer_action(db, current_user, "ACCEPT_TASK", issue.id, prev, "ACCEPTED", payload.notes)
     
     return StandardResponse(success=True, message=f"Task {issue_id} accepted successfully.")
 
-# 3. SUBMIT SITE INSPECTION
 @router.post("/issues/{issue_id}/submit-inspection", response_model=StandardResponse)
 def submit_site_inspection(
     issue_id: str,
@@ -136,7 +219,6 @@ def submit_site_inspection(
     current_user: User = Depends(require_roles(["OFFICER", "SUPERVISOR", "ADMIN"])),
     db: Session = Depends(get_db)
 ):
-    """Officer submits site inspection report."""
     issue = db.query(Issue).filter(Issue.id == issue_id).first()
     if not issue:
         raise HTTPException(status_code=404, detail="Issue not found")
@@ -171,7 +253,6 @@ def submit_site_inspection(
 
     return StandardResponse(success=True, message="Site inspection report recorded successfully.", data={"inspection_id": inspection.id})
 
-# 4. REQUEST BUDGET / FUND APPROVAL
 @router.post("/issues/{issue_id}/request-budget", response_model=StandardResponse)
 def request_budget_approval(
     issue_id: str,
@@ -179,7 +260,6 @@ def request_budget_approval(
     current_user: User = Depends(require_roles(["OFFICER", "SUPERVISOR", "ADMIN"])),
     db: Session = Depends(get_db)
 ):
-    """Officer submits a funding/approval request."""
     issue = db.query(Issue).filter(Issue.id == issue_id).first()
     if not issue:
         raise HTTPException(status_code=404, detail="Issue not found")
@@ -195,7 +275,6 @@ def request_budget_approval(
 
     return StandardResponse(success=True, message="Budget request submitted for Supervisor review.")
 
-# 5. DECIDE BUDGET (SUPERVISOR / ADMIN ONLY — NO SELF APPROVAL)
 @router.post("/issues/{issue_id}/decide-budget", response_model=StandardResponse)
 def decide_budget(
     issue_id: str,
@@ -203,7 +282,6 @@ def decide_budget(
     current_user: User = Depends(require_roles(["SUPERVISOR", "ADMIN"])),
     db: Session = Depends(get_db)
 ):
-    """Supervisor/Admin approves or rejects funding request. Self-approval is blocked."""
     issue = db.query(Issue).filter(Issue.id == issue_id).first()
     if not issue:
         raise HTTPException(status_code=404, detail="Issue not found")
@@ -231,7 +309,6 @@ def decide_budget(
 
     return StandardResponse(success=True, message=f"Budget decision recorded: {issue.budget_status}")
 
-# 6. CREATE WORK ORDER
 @router.post("/issues/{issue_id}/create-work-order", response_model=StandardResponse)
 def create_work_order(
     issue_id: str,
@@ -239,7 +316,6 @@ def create_work_order(
     current_user: User = Depends(require_roles(["OFFICER", "SUPERVISOR", "ADMIN"])),
     db: Session = Depends(get_db)
 ):
-    """Officer creates a formal Work Order for field execution."""
     issue = db.query(Issue).filter(Issue.id == issue_id).first()
     if not issue:
         raise HTTPException(status_code=404, detail="Issue not found")
@@ -268,7 +344,6 @@ def create_work_order(
 
     return StandardResponse(success=True, message="Work order created successfully.", data={"work_order_id": work_order.id})
 
-# 7. UPDATE WORK PROGRESS
 @router.post("/issues/{issue_id}/update-progress", response_model=StandardResponse)
 def update_work_progress(
     issue_id: str,
@@ -276,7 +351,6 @@ def update_work_progress(
     current_user: User = Depends(require_roles(["OFFICER", "SUPERVISOR", "ADMIN"])),
     db: Session = Depends(get_db)
 ):
-    """Updates status to IN_PROGRESS, PAUSED, or COMPLETED."""
     issue = db.query(Issue).filter(Issue.id == issue_id).first()
     if not issue:
         raise HTTPException(status_code=404, detail="Issue not found")
@@ -293,7 +367,6 @@ def update_work_progress(
 
     return StandardResponse(success=True, message=f"Work status updated to {payload.status}")
 
-# 8. SUBMIT RESOLUTION EVIDENCE (BEFORE/AFTER PHOTOS)
 @router.post("/issues/{issue_id}/submit-evidence", response_model=StandardResponse)
 def submit_resolution_evidence(
     issue_id: str,
@@ -301,7 +374,6 @@ def submit_resolution_evidence(
     current_user: User = Depends(require_roles(["OFFICER", "SUPERVISOR", "ADMIN"])),
     db: Session = Depends(get_db)
 ):
-    """Uploads completion evidence and moves ticket to WAITING_FOR_CITIZEN_VERIFICATION."""
     issue = db.query(Issue).filter(Issue.id == issue_id).first()
     if not issue:
         raise HTTPException(status_code=404, detail="Issue not found")
@@ -313,7 +385,6 @@ def submit_resolution_evidence(
     issue.completion_longitude = payload.completion_longitude
     issue.resolved_at = datetime.now(timezone.utc)
     
-    # Transition workflow state to verification without closing immediately
     issue.workflow_state = "WAITING_FOR_CITIZEN_VERIFICATION"
     issue.status = "PENDING_CONFIRMATION"
     db.commit()

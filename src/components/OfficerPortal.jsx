@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Clock, ShieldAlert, CheckCircle, Upload, Camera, FileText, UserCheck, 
   AlertCircle, ArrowRight, Eye, DollarSign, Hammer, ClipboardList, Map, 
-  CheckSquare, Activity, AlertTriangle, Layers, UserX
+  CheckSquare, Activity, AlertTriangle, Layers, PauseCircle, PlayCircle, Zap
 } from 'lucide-react';
 import CivicHeatmapView from './citizen/CivicHeatmapView';
 import { apiService } from '../utils/apiService';
@@ -13,9 +13,9 @@ export default function OfficerPortal({ lang, complaints, setComplaints }) {
   const [selectedComplaint, setSelectedComplaint] = useState(null);
   
   // Active Action Modal inside Detail
-  const [activeModal, setActiveModal] = useState(null); // null | 'inspection' | 'budget' | 'work_order' | 'evidence'
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [activeModal, setActiveModal] = useState(null); // null | 'inspection' | 'budget' | 'work_order' | 'evidence' | 'pause'
+  const [isDemoMode, setIsDemoMode] = useState(true);
+  const [pauseReason, setPauseReason] = useState('AWAITING_APPROVAL');
 
   // Form States
   const [inspectionData, setInspectionData] = useState({
@@ -126,6 +126,26 @@ export default function OfficerPortal({ lang, complaints, setComplaints }) {
     setSelectedComplaint(null);
   };
 
+  const handlePauseSLA = (e) => {
+    e.preventDefault();
+    if (!selectedComplaint) return;
+    setComplaints(prev => prev.map(c => c.id === selectedComplaint.id ? {
+      ...c,
+      slaPaused: true,
+      slaPauseReason: pauseReason,
+      history: [
+        ...c.history,
+        {
+          step: `SLA Paused (${pauseReason})`,
+          note: `Officer logged legitimate pause reason: ${pauseReason}`,
+          timestamp: new Date().toISOString()
+        }
+      ]
+    } : c));
+    alert(`SLA Timer paused under legitimate rule: ${pauseReason}`);
+    setActiveModal(null);
+  };
+
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', paddingBottom: '30px' }}>
       
@@ -137,38 +157,46 @@ export default function OfficerPortal({ lang, complaints, setComplaints }) {
             <span>Municipal Officer Workspace</span>
           </h2>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            Operational Portal for Assigned Department Tickets, Site Inspections & Work Orders
+            Operational Portal for Assigned Department Tickets, Automatic SLA Engine & Work Orders
           </p>
         </div>
 
-        {/* Sub-Nav Navigation Tabs */}
-        <div style={{ display: 'flex', gap: '6px', background: '#090d16', padding: '4px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.1)', flexWrap: 'wrap' }}>
-          <button 
-            onClick={() => { setActiveTab('dashboard'); setSelectedComplaint(null); }} 
-            className={`glass-btn ${activeTab === 'dashboard' ? 'glass-btn-primary' : ''}`}
-            style={{ fontSize: '0.78rem', padding: '6px 12px', border: 'none' }}
-          >
-            <Activity size={14} />
-            <span>Dashboard</span>
-          </button>
+        {/* DEMO MODE CLOCK & NAVIGATION TABS */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(99, 102, 241, 0.15)', border: '1px solid rgba(99, 102, 241, 0.3)', padding: '6px 12px', borderRadius: '8px', fontSize: '0.78rem', color: '#a5b4fc' }}>
+            <Zap size={14} color="#f59e0b" />
+            <span><strong>DEMO MODE SLA:</strong> 2 Mins (Critical) / 5 Mins (Normal)</span>
+          </div>
 
-          <button 
-            onClick={() => { setActiveTab('assigned'); setSelectedComplaint(null); }} 
-            className={`glass-btn ${activeTab === 'assigned' ? 'glass-btn-primary' : ''}`}
-            style={{ fontSize: '0.78rem', padding: '6px 12px', border: 'none' }}
-          >
-            <ClipboardList size={14} />
-            <span>Assigned ({filteredComplaints.length})</span>
-          </button>
+          <div style={{ display: 'flex', gap: '6px', background: '#090d16', padding: '4px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+            <button 
+              onClick={() => { setActiveTab('dashboard'); setSelectedComplaint(null); }} 
+              className={`glass-btn ${activeTab === 'dashboard' ? 'glass-btn-primary' : ''}`}
+              style={{ fontSize: '0.78rem', padding: '6px 12px', border: 'none' }}
+            >
+              <Activity size={14} />
+              <span>Dashboard</span>
+            </button>
 
-          <button 
-            onClick={() => setActiveTab('map')} 
-            className={`glass-btn ${activeTab === 'map' ? 'glass-btn-primary' : ''}`}
-            style={{ fontSize: '0.78rem', padding: '6px 12px', border: 'none' }}
-          >
-            <Map size={14} />
-            <span>Satellite Map</span>
-          </button>
+            <button 
+              onClick={() => { setActiveTab('assigned'); setSelectedComplaint(null); }} 
+              className={`glass-btn ${activeTab === 'assigned' ? 'glass-btn-primary' : ''}`}
+              style={{ fontSize: '0.78rem', padding: '6px 12px', border: 'none' }}
+            >
+              <ClipboardList size={14} />
+              <span>Assigned ({filteredComplaints.length})</span>
+            </button>
+
+            <button 
+              onClick={() => setActiveTab('map')} 
+              className={`glass-btn ${activeTab === 'map' ? 'glass-btn-primary' : ''}`}
+              style={{ fontSize: '0.78rem', padding: '6px 12px', border: 'none' }}
+            >
+              <Map size={14} />
+              <span>Satellite Map</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -261,18 +289,24 @@ export default function OfficerPortal({ lang, complaints, setComplaints }) {
                   📍 {comp.ward || 'Chennai Ward'}
                 </p>
 
-                {/* SLA & AUTOMATIC ESCALATION DISPLAY (NO MANUAL ESCALATE BUTTON) */}
+                {/* AUTOMATIC SLA & ESCALATION STATUS (NO MANUAL ESCALATE BUTTON EXISTS) */}
                 <div style={{ padding: '10px 12px', background: '#090d16', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.08)', marginBottom: '14px', fontSize: '0.78rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                    <span style={{ color: 'var(--text-dim)' }}>SLA Deadline:</span>
-                    <span style={{ color: comp.slaDaysRemaining <= 1 ? '#f43f5e' : '#f8fafc', fontWeight: 700 }}>
-                      ⏱️ {comp.slaDaysRemaining} Days Remaining
+                    <span style={{ color: 'var(--text-dim)' }}>SLA Policy (Configured):</span>
+                    <span style={{ color: '#f8fafc', fontWeight: 700 }}>
+                      {comp.priority === 'CRITICAL' || comp.priority === 'HIGH' ? '15 Days (Real) / 2 Mins (Demo)' : '30 Days (Real) / 5 Mins (Demo)'}
                     </span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: 'var(--text-dim)' }}>Escalation Status:</span>
-                    <span style={{ color: comp.slaDaysRemaining <= 0 ? '#ef4444' : comp.slaDaysRemaining <= 2 ? '#f59e0b' : '#10b981', fontWeight: 700 }}>
-                      {comp.slaDaysRemaining <= 0 ? '⚠️ Breached (Supervisor Notified)' : comp.slaDaysRemaining <= 2 ? '⚠️ Warning' : 'None'}
+                    <span style={{ color: comp.slaPaused ? '#38bdf8' : comp.slaDaysRemaining <= 0 ? '#ef4444' : comp.slaDaysRemaining <= 2 ? '#f59e0b' : '#10b981', fontWeight: 700 }}>
+                      {comp.slaPaused 
+                        ? `⏸️ PAUSED (${comp.slaPauseReason})` 
+                        : comp.slaDaysRemaining <= 0 
+                        ? '🚨 AUTO-ESCALATED (Level 1)' 
+                        : comp.slaDaysRemaining <= 2 
+                        ? '⚠️ APPROACHING DEADLINE' 
+                        : '✅ ON TIME'}
                     </span>
                   </div>
                 </div>
@@ -328,11 +362,15 @@ export default function OfficerPortal({ lang, complaints, setComplaints }) {
               </p>
             </div>
 
-            {/* SLA & ESCALATION NOTICE */}
+            {/* AUTOMATIC SLA ESCALATION STATUS PANEL */}
             <div style={{ padding: '10px 14px', background: '#090d16', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: '8px', textAlign: 'right' }}>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>Automatic System Escalation:</div>
-              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: selectedComplaint.slaDaysRemaining <= 0 ? '#ef4444' : '#f59e0b' }}>
-                {selectedComplaint.slaDaysRemaining <= 0 ? '⚠️ Breached — Auto-Escalated to Zonal Supervisor' : `${selectedComplaint.slaDaysRemaining} Days Remaining (Auto Managed)`}
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>Automatic Backend SLA Escalation Engine:</div>
+              <div style={{ fontSize: '0.88rem', fontWeight: 800, color: selectedComplaint.slaPaused ? '#38bdf8' : selectedComplaint.slaDaysRemaining <= 0 ? '#ef4444' : '#10b981' }}>
+                {selectedComplaint.slaPaused
+                  ? `⏸️ SLA PAUSED (${selectedComplaint.slaPauseReason})`
+                  : selectedComplaint.slaDaysRemaining <= 0
+                  ? '🚨 AUTO-ESCALATED TO ZONAL SUPERVISOR'
+                  : `✅ ON TIME (${selectedComplaint.slaDaysRemaining} Days Remaining)`}
               </div>
             </div>
           </div>
@@ -361,11 +399,6 @@ export default function OfficerPortal({ lang, complaints, setComplaints }) {
                 <p style={{ fontSize: '0.88rem', color: '#38bdf8', fontWeight: 600 }}>
                   "{selectedComplaint.titleEn || selectedComplaint.processed_description}"
                 </p>
-              </div>
-
-              {/* Duplicate Check Info */}
-              <div style={{ padding: '12px', background: 'rgba(99, 102, 241, 0.12)', border: '1px solid rgba(99, 102, 241, 0.3)', borderRadius: '8px', fontSize: '0.8rem', color: '#a5b4fc' }}>
-                🔍 <strong>Spatial & Embedding Deduplication Check:</strong> Verified Unique Master Ticket ({selectedComplaint.reporterCount || 1} Citizen Report Linked).
               </div>
             </div>
 
@@ -423,6 +456,18 @@ export default function OfficerPortal({ lang, complaints, setComplaints }) {
                   </div>
                   <ArrowRight size={16} />
                 </button>
+
+                <button
+                  onClick={() => setActiveModal('pause')}
+                  className="glass-btn"
+                  style={{ justifyContent: 'space-between', padding: '12px 16px', borderColor: 'rgba(255, 255, 255, 0.2)' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <PauseCircle size={16} color="#a855f7" />
+                    <span>Pause SLA Timer (Legitimate Condition)</span>
+                  </div>
+                  <ArrowRight size={16} />
+                </button>
               </div>
 
               {/* AUDIT LOG TRAIL */}
@@ -444,6 +489,33 @@ export default function OfficerPortal({ lang, complaints, setComplaints }) {
           </div>
 
           {/* DYNAMIC ACTION MODALS */}
+
+          {/* SLA PAUSE MODAL */}
+          {activeModal === 'pause' && (
+            <div style={{ background: '#090d16', padding: '20px', borderRadius: '10px', border: '1px solid #a855f7', marginTop: '16px' }}>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#e9d5ff', marginBottom: '12px' }}>
+                ⏸️ Pause SLA Timer (Legitimate Audited Condition)
+              </h3>
+
+              <form onSubmit={handlePauseSLA} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Select Legitimate Pause Reason:</label>
+                  <select className="glass-input" value={pauseReason} onChange={e => setPauseReason(e.target.value)}>
+                    <option value="AWAITING_APPROVAL">AWAITING APPROVAL (Inter-departmental)</option>
+                    <option value="AWAITING_EXTERNAL_AGENCY">AWAITING EXTERNAL AGENCY (TNEB / Metro Water)</option>
+                    <option value="COURT_HOLD">COURT / LEGAL HOLD</option>
+                    <option value="NATURAL_DISASTER">NATURAL DISASTER (Cyclone / Monsoon Flood)</option>
+                    <option value="MATERIAL_UNAVAILABLE">MATERIAL UNAVAILABLE (Supply Chain Delay)</option>
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button type="submit" className="glass-btn glass-btn-primary" style={{ background: '#a855f7', borderColor: '#9333ea' }}>Confirm SLA Pause</button>
+                  <button type="button" onClick={() => setActiveModal(null)} className="glass-btn">Cancel</button>
+                </div>
+              </form>
+            </div>
+          )}
 
           {/* 1. SITE INSPECTION FORM MODAL */}
           {activeModal === 'inspection' && (
@@ -484,9 +556,6 @@ export default function OfficerPortal({ lang, complaints, setComplaints }) {
               <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#fde047', marginBottom: '12px' }}>
                 💰 Fund & Budget Approval Request
               </h3>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
-                Officers cannot self-approve funding requests. Submissions will be routed to the Zonal Supervisor.
-              </p>
 
               <form onSubmit={handleSubmitBudgetRequest} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div>
