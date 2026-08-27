@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Globe, Shield, UserCheck, LayoutDashboard, Sparkles, Lock, User, PlayCircle, LogOut, Compass } from 'lucide-react';
+import { Building2, Globe, Shield, UserCheck, LayoutDashboard, Sparkles, Lock, User, PlayCircle, LogOut, Compass } from 'lucide-react';
 import SplashScreen from './components/auth/SplashScreen';
 import LanguageSelectScreen from './components/auth/LanguageSelectScreen';
 import SignUpScreen from './components/auth/SignUpScreen';
