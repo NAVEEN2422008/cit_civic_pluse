@@ -73,6 +73,58 @@ async function runScreenshotCapture() {
     await page.screenshot({ path: path.join(OUTPUT_DIR, 'screenshot_5_interactive_map.png') });
     console.log('✓ Captured: screenshot_5_interactive_map.png');
 
+    // 6. OFFICER OPERATIONAL WORKSPACE & ACTION MODALS
+    console.log('📸 Testing Officer Operational Workspace & Action Modals...');
+    await page.evaluate(() => {
+      const selects = Array.from(document.querySelectorAll('select'));
+      if (selects.length > 0) {
+        selects[0].value = 'OFFICER';
+        selects[0].dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+    await new Promise(r => setTimeout(r, 2000));
+    await page.screenshot({ path: path.join(OUTPUT_DIR, 'screenshot_6_officer_portal.png') });
+    console.log('✓ Captured: screenshot_6_officer_portal.png');
+
+    // 7. CITIZEN COMPLAINT INTAKE STEPPER & VOICE BOX
+    console.log('📸 Testing Citizen Complaint Intake Form & Voice Box...');
+    await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('button'));
+      const reportBtn = btns.find(b => b.innerText.includes('Report') || b.innerText.includes('Raise'));
+      if (reportBtn) reportBtn.click();
+    });
+    await new Promise(r => setTimeout(r, 2000));
+    await page.screenshot({ path: path.join(OUTPUT_DIR, 'screenshot_7_complaint_intake_stepper.png') });
+    console.log('✓ Captured: screenshot_7_complaint_intake_stepper.png');
+
+    // 8. PROOF OF WORK DETAILED SLIDER & EXIF BADGES
+    console.log('📸 Testing Detailed Proof of Work Verification Panel...');
+    await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('button'));
+      const hubBtn = btns.find(b => b.innerText.includes('My Civic Hub') || b.innerText.includes('Hub'));
+      if (hubBtn) hubBtn.click();
+    });
+    await new Promise(r => setTimeout(r, 1500));
+    await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('button'));
+      const progressBtn = btns.find(b => b.innerText.includes('Progress') || b.innerText.includes('View'));
+      if (progressBtn) progressBtn.click();
+    });
+    await new Promise(r => setTimeout(r, 2000));
+    await page.screenshot({ path: path.join(OUTPUT_DIR, 'screenshot_8_proof_of_work_slider.png') });
+    console.log('✓ Captured: screenshot_8_proof_of_work_slider.png');
+
+    // 9. OFFLINE QUEUE & CONNECTIVITY MODAL
+    console.log('📸 Testing Offline Connectivity Queue Banner & Modal...');
+    await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('button'));
+      const syncBtn = btns.find(b => b.innerText.includes('Sync') || b.innerText.includes('Offline') || b.innerText.includes('Queue'));
+      if (syncBtn) syncBtn.click();
+    });
+    await new Promise(r => setTimeout(r, 1500));
+    await page.screenshot({ path: path.join(OUTPUT_DIR, 'screenshot_9_offline_queue_modal.png') });
+    console.log('✓ Captured: screenshot_9_offline_queue_modal.png');
+
   } catch (err) {
     console.error('Error during screenshot capture:', err);
   } finally {
