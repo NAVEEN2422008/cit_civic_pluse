@@ -11,7 +11,15 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(String, primary_key=True, default=generate_uuid, index=True)
-    email = Column(String, unique=True, index=True, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=True)
+    officer_id = Column(String, unique=True, index=True, nullable=True)
+    name = Column(String, nullable=True)
+    designation = Column(String, nullable=True)
+    department_id = Column(String, nullable=True)
+    zone_id = Column(String, nullable=True)
+    ward_id = Column(String, nullable=True)
+    supervisor_id = Column(String, nullable=True)
+    
     mobile = Column(String, nullable=True)
     preferred_language = Column(String, default="English", nullable=False)
     identity_verified = Column(Boolean, default=False, nullable=False)
@@ -51,7 +59,7 @@ class IssueSupport(Base):
     user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
-# --- MODULE 3, 4, 5, 6, 7, 8, 9 & 10 ISSUE DATA MODEL ---
+# --- ISSUE DATA MODEL ---
 class Issue(Base):
     __tablename__ = "issues"
 
@@ -73,14 +81,14 @@ class Issue(Base):
     language_processing_status = Column(String, default="PENDING", nullable=False) # PENDING, COMPLETED, FAILED
     
     # Module 6 AI Categorization Fields
-    ai_category = Column(String, nullable=True) # ROADS, GARBAGE, STREETLIGHT, DRAINAGE, WATER, FOOTPATH, PUBLIC_SAFETY, PARKS, PUBLIC_INFRASTRUCTURE, OTHER
-    ai_issue_type = Column(String, nullable=True) # POTHOLE, OVERFLOWING_BIN, BROKEN_POLE, etc.
-    ai_severity = Column(String, nullable=True) # LOW, MEDIUM, HIGH, CRITICAL
-    ai_confidence = Column(Float, nullable=True) # 0.0 to 1.0
+    ai_category = Column(String, nullable=True)
+    ai_issue_type = Column(String, nullable=True)
+    ai_severity = Column(String, nullable=True)
+    ai_confidence = Column(Float, nullable=True)
     ai_reason = Column(Text, nullable=True)
     ai_processed_at = Column(DateTime, nullable=True)
     ai_model_name = Column(String, default="gemini-2.5-flash", nullable=False)
-    ai_review_status = Column(String, default="AUTO_APPROVED", nullable=False) # AUTO_APPROVED, AI_REVIEW_REQUIRED, SPAM_SUSPECTED
+    ai_review_status = Column(String, default="AUTO_APPROVED", nullable=False)
 
     # Module 7 Duplicate Detection Fields
     is_duplicate = Column(Boolean, default=False, nullable=False)
@@ -88,37 +96,37 @@ class Issue(Base):
     reports_count = Column(Integer, default=1, nullable=False)
     supporters_count = Column(Integer, default=1, nullable=False)
     duplicate_score = Column(Float, nullable=True)
-    duplicate_confidence_breakdown = Column(Text, nullable=True) # JSON string
+    duplicate_confidence_breakdown = Column(Text, nullable=True)
 
     # Module 9 Resolution & Verification Fields
     resolution_after_photo = Column(Text, nullable=True)
     resolution_notes = Column(Text, nullable=True)
     resolved_at = Column(DateTime, nullable=True)
-    citizen_confirmation_status = Column(String, default="PENDING", nullable=False) # PENDING, CONFIRMED, REOPENED
+    citizen_confirmation_status = Column(String, default="PENDING", nullable=False)
     
     reopen_reason = Column(Text, nullable=True)
     reopen_proof_photo = Column(Text, nullable=True)
     
-    verification_score = Column(Float, nullable=True) # AI Reopen verification score (0.0 to 1.0)
+    verification_score = Column(Float, nullable=True)
     verification_reason = Column(Text, nullable=True)
-    verification_status = Column(String, default="NONE", nullable=False) # NONE, AI_VERIFIED, REQUIRES_SUPERVISOR_REVIEW
-    public_verification_eligible = Column(Boolean, default=False, nullable=False) # 15-day rule transition
+    verification_status = Column(String, default="NONE", nullable=False)
+    public_verification_eligible = Column(Boolean, default=False, nullable=False)
 
     # Module 10 Security & Abuse Fields
-    spam_score = Column(Float, default=0.0, nullable=False) # 0.0 to 1.0
-    abuse_score = Column(Float, default=0.0, nullable=False) # 0.0 to 1.0
+    spam_score = Column(Float, default=0.0, nullable=False)
+    abuse_score = Column(Float, default=0.0, nullable=False)
 
     media_url = Column(Text, nullable=True)
     
     # Location fields
     latitude = Column(Float, nullable=False)
     longitude = Column(Float, nullable=False)
-    location_source = Column(String, default="GPS", nullable=False) # GPS, EXIF, MANUAL
+    location_source = Column(String, default="GPS", nullable=False)
     location_accuracy = Column(Float, nullable=True)
     location_ward = Column(String, default="Ward General", nullable=False)
 
-    status = Column(String, default="OPEN", nullable=False) # OPEN, PROCESSING, PENDING_CONFIRMATION, RESOLVED, REOPEN_REQUESTED, CLOSED, PUBLIC_VERIFICATION_AVAILABLE
-    sync_status = Column(String, default="SYNCED", nullable=False) # SYNCED, PENDING_SYNC
+    status = Column(String, default="OPEN", nullable=False)
+    sync_status = Column(String, default="SYNCED", nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 

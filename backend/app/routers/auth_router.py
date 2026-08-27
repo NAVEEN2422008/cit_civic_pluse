@@ -9,7 +9,7 @@ from app.config import settings
 from app.models import User, MockIdentity, OTPStore
 from app.schemas import (
     OTPRequest, OTPVerifyRequest, IdentityCheckRequest, IdentityCheckResponse,
-    RegisterCitizenRequest, LoginRequest, RefreshTokenRequest, TokenResponse, UserResponse, StandardResponse
+    RegisterCitizenRequest, LoginRequest, OfficerLoginRequest, RefreshTokenRequest, TokenResponse, UserResponse, StandardResponse
 )
 from app.auth import (
     hash_password, verify_password, hash_identity,
@@ -194,6 +194,9 @@ def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)
         log_audit_event(db, "REJECTED", details=f"Login failed: User not found {email}", ip_address=request.client.host)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password.")
         
+    if user.role != "CITIZEN":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Role mismatch. Officer accounts must log in via Officer Login.")
+
     if user.account_status != "ACTIVE":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is inactive or suspended.")
         
@@ -216,6 +219,39 @@ def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)
     refresh_token = create_refresh_token({"sub": user.id, "role": user.role})
     
     log_audit_event(db, "LOGIN", user_id=user.id, details=f"Citizen logged in: {email}", ip_address=request.client.host)
+    
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        user_id=user.id,
+        role=user.role,
+        preferred_language=user.preferred_language
+    )
+
+@router.post("/officer-login", response_model=TokenResponse)
+def officer_login(payload: OfficerLoginRequest, request: Request, db: Session = Depends(get_db)):
+    """Authenticates municipal/department officers via Officer ID and password."""
+    off_id = payload.officer_id.upper().strip()
+    user = db.query(User).filter(User.officer_id == off_id).first()
+    
+    if not user:
+        log_audit_event(db, "REJECTED", details=f"Officer login failed: Officer ID not found {off_id}", ip_address=request.client.host)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Officer ID or password.")
+        
+    if user.role not in ["OFFICER", "SUPERVISOR", "ADMIN"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied. Account is not an authorized officer.")
+        
+    if user.account_status != "ACTIVE":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Officer account is suspended or inactive.")
+        
+    if not user.password_hash or not verify_password(payload.password, user.password_hash):
+        log_audit_event(db, "REJECTED", user_id=user.id, details=f"Incorrect officer password for {off_id}", ip_address=request.client.host)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Officer ID or password.")
+        
+    access_token = create_access_token({"sub": user.id, "role": user.role, "officer_id": user.officer_id})
+    refresh_token = create_refresh_token({"sub": user.id, "role": user.role})
+    
+    log_audit_event(db, "OFFICER_LOGIN", user_id=user.id, details=f"Officer logged in: {off_id} ({user.role})", ip_address=request.client.host)
     
     return TokenResponse(
         access_token=access_token,

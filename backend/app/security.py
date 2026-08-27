@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from typing import List
 from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
@@ -58,3 +59,14 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User account is inactive or suspended")
         
     return user
+
+def require_roles(allowed_roles: List[str]):
+    """Strict Role-Based Access Control (RBAC) Dependency Factory."""
+    def role_checker(current_user: User = Depends(get_current_user)) -> User:
+        if current_user.role not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Unauthorized: Role '{current_user.role}' does not have access to this resource. Allowed roles: {allowed_roles}"
+            )
+        return current_user
+    return role_checker

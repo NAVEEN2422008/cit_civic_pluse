@@ -62,7 +62,7 @@ export const apiService = {
     return data;
   },
 
-  // 5. Login
+  // 5. Citizen Login
   login: async ({ email, password, otp_code }) => {
     const res = await fetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
@@ -71,6 +71,21 @@ export const apiService = {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || 'Login failed');
+    if (data.access_token) {
+      apiService.setTokens(data.access_token, data.refresh_token);
+    }
+    return data;
+  },
+
+  // 5b. Officer Login
+  officerLogin: async ({ officer_id, password }) => {
+    const res = await fetch(`${API_BASE_URL}/auth/officer-login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ officer_id, password })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Officer login failed');
     if (data.access_token) {
       apiService.setTokens(data.access_token, data.refresh_token);
     }
@@ -99,7 +114,7 @@ export const apiService = {
     const token = apiService.getToken();
     if (!token) throw new Error('No access token found');
 
-    const res = await fetch(`${API_BASE_URL}/citizen/dashboard-summary`, {
+    const res = await fetch(`${API_BASE_URL}/citizen/dashboard`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -109,160 +124,79 @@ export const apiService = {
     return data;
   },
 
-  // 8. Get Public Area Issues (Privacy Sanitized)
-  getPublicIssues: async () => {
-    const token = apiService.getToken();
-    if (!token) throw new Error('No access token found');
+  // --- MODULE 3 & 4 INTAKE METHODS ---
 
-    const res = await fetch(`${API_BASE_URL}/citizen/public-issues`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || 'Failed to fetch public issues');
-    return data;
-  },
-
-  // --- MODULE 3 & 4 INTAKE METHOD ---
-
-  // 9. Submit Complaint Issue Intake
+  // 8. Create Issue (Intake API)
   createIssue: async (issuePayload) => {
     const token = apiService.getToken();
-    if (!token) throw new Error('No access token found');
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
 
-    const res = await fetch(`${API_BASE_URL}/issues/create`, {
+    const res = await fetch(`${API_BASE_URL}/issues/intake`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
+      headers,
       body: JSON.stringify(issuePayload)
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || 'Failed to submit complaint');
+    if (!res.ok) throw new Error(data.detail || 'Failed to submit issue');
     return data;
   },
 
-  // --- MODULE 5 SARVAM AI METHODS ---
-
-  // 10. Reprocess Failed Sarvam AI Pipeline
-  reprocessSarvam: async (issueId) => {
+  // 9. Sync Offline Queue Batch
+  syncBatchOfflineIssues: async (issuesArray) => {
     const token = apiService.getToken();
-    if (!token) throw new Error('No access token found');
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
 
-    const res = await fetch(`${API_BASE_URL}/issues/${issueId}/reprocess-sarvam`, {
+    const res = await fetch(`${API_BASE_URL}/issues/sync-batch`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
+      headers,
+      body: JSON.stringify(issuesArray)
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || 'Failed to reprocess Sarvam AI');
+    if (!res.ok) throw new Error(data.detail || 'Failed to sync offline issues');
     return data;
   },
 
-  // 11. Correct Transcript or Description
-  updateTranscript: async (issueId, { corrected_transcript, corrected_description }) => {
-    const token = apiService.getToken();
-    if (!token) throw new Error('No access token found');
+  // --- MODULE 8 PUBLIC COMPLAINTS & HEATMAP METHODS ---
 
-    const res = await fetch(`${API_BASE_URL}/issues/${issueId}/transcript`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({ corrected_transcript, corrected_description })
-    });
+  // 10. Get Public Nearby Issues
+  getPublicNearbyIssues: async (lat = 13.0827, lon = 80.2707, radius_km = 5.0) => {
+    const res = await fetch(`${API_BASE_URL}/issues/public-nearby?lat=${lat}&lon=${lon}&radius_km=${radius_km}`);
     const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || 'Failed to update transcript');
+    if (!res.ok) throw new Error(data.detail || 'Failed to fetch public nearby issues');
     return data;
   },
 
-  // --- MODULE 6 AI CATEGORIZATION METHODS ---
-
-  // 12. Recategorize Issue with Gemini AI
-  recategorizeIssue: async (issueId) => {
-    const token = apiService.getToken();
-    if (!token) throw new Error('No access token found');
-
-    const res = await fetch(`${API_BASE_URL}/issues/${issueId}/recategorize`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || 'Failed to recategorize issue');
-    return data;
-  },
-
-  // --- MODULE 8 MY CIVIC HUB & HEATMAP METHODS ---
-
-  // 13. Get Heatmap Density Clusters
+  // 11. Get Heatmap Clusters
   getHeatmapClusters: async () => {
-    const token = apiService.getToken();
-    if (!token) throw new Error('No access token found');
-
-    const res = await fetch(`${API_BASE_URL}/citizen/heatmap-clusters`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
+    const res = await fetch(`${API_BASE_URL}/issues/heatmap-clusters`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || 'Failed to fetch heatmap clusters');
     return data;
   },
 
-  // 14. Get Issue Detail with 9-Step Status Timeline
-  getIssueDetailWithTimeline: async (issueId) => {
+  // --- MODULE 9 RESOLUTION VERIFICATION METHODS ---
+
+  // 12. Submit Citizen Resolution Verification
+  verifyResolution: async (issueId, { confirmed, reopen_reason, reopen_proof_photo }) => {
     const token = apiService.getToken();
-    if (!token) throw new Error('No access token found');
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
 
-    const res = await fetch(`${API_BASE_URL}/citizen/issues/${issueId}/detail`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || 'Failed to fetch issue details');
-    return data;
-  },
-
-  // --- MODULE 9 RESOLUTION & VERIFICATION METHODS ---
-
-  // 15. Confirm Resolution
-  confirmResolution: async (issueId) => {
-    const token = apiService.getToken();
-    if (!token) throw new Error('No access token found');
-
-    const res = await fetch(`${API_BASE_URL}/issues/${issueId}/confirm-resolution`, {
+    const res = await fetch(`${API_BASE_URL}/issues/${issueId}/verify-resolution`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
+      headers,
+      body: JSON.stringify({ confirmed, reopen_reason, reopen_proof_photo })
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || 'Failed to confirm resolution');
-    return data;
-  },
-
-  // 16. Reopen Issue with Mandatory Proof & Reason
-  reopenIssue: async (issueId, { reason, proof_photo, additional_notes }) => {
-    const token = apiService.getToken();
-    if (!token) throw new Error('No access token found');
-
-    const res = await fetch(`${API_BASE_URL}/issues/${issueId}/reopen`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({ reason, proof_photo, additional_notes })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || 'Failed to reopen complaint');
+    if (!res.ok) throw new Error(data.detail || 'Failed to submit resolution verification');
     return data;
   }
 };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Globe, Shield, UserCheck, LayoutDashboard, Sparkles, Lock, User, PlayCircle } from 'lucide-react';
+import { Globe, Shield, UserCheck, LayoutDashboard, Sparkles, Lock, User, PlayCircle, LogOut } from 'lucide-react';
 import SplashScreen from './components/auth/SplashScreen';
 import LanguageSelectScreen from './components/auth/LanguageSelectScreen';
 import SignUpScreen from './components/auth/SignUpScreen';
@@ -29,11 +29,11 @@ import { apiService } from './utils/apiService';
 
 export default function App() {
   const [lang, setLang] = useState('English');
-  const [activeRole, setActiveRole] = useState('citizen'); // 'citizen' | 'officer' | 'admin'
+  const [activeRole, setActiveRole] = useState('CITIZEN'); // 'CITIZEN' | 'OFFICER' | 'ADMIN'
   const [complaints, setComplaints] = useState(INITIAL_MOCK_COMPLAINTS);
   
   // Navigation & Modal State
-  const [authStep, setAuthStep] = useState('splash');
+  const [authStep, setAuthStep] = useState('login'); // 'splash' | 'language' | 'signup' | 'otp' | 'identity' | 'login' | 'app'
   const [activeTab, setActiveTab] = useState('home');
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isQueueModalOpen, setIsQueueModalOpen] = useState(false);
@@ -56,11 +56,13 @@ export default function App() {
           setUserProfile(profile);
           setIsAuthenticated(true);
           setLang(profile.preferred_language || 'English');
+          setActiveRole(profile.role || 'CITIZEN');
           setAuthStep('app');
         }
       } catch (err) {
         apiService.clearTokens();
         setIsAuthenticated(false);
+        setAuthStep('login');
       }
     };
     checkExistingAuth();
@@ -70,6 +72,7 @@ export default function App() {
     apiService.clearTokens();
     setIsAuthenticated(false);
     setUserProfile(null);
+    setActiveRole('CITIZEN');
     setAuthStep('login');
   };
 
@@ -79,18 +82,22 @@ export default function App() {
       setUserProfile(profile);
       setIsAuthenticated(true);
       setLang(profile.preferred_language || 'English');
+      const userRole = profile.role || tokenRes.role || 'CITIZEN';
+      setActiveRole(userRole);
       setAuthStep('app');
     } catch (err) {
+      const fallbackRole = tokenRes.role || 'CITIZEN';
       setUserProfile({
         civic_user_id: tokenRes.user_id || 'CIV-DEMO1234',
         email: registrationData.email || 'citizen@example.com',
         preferred_language: tokenRes.preferred_language || lang,
         identity_verified: true,
-        role: tokenRes.role || 'CITIZEN',
+        role: fallbackRole,
         account_status: 'ACTIVE',
         created_at: new Date().toISOString()
       });
       setIsAuthenticated(true);
+      setActiveRole(fallbackRole);
       setAuthStep('app');
     }
   };
@@ -162,9 +169,9 @@ export default function App() {
     else if (stepNum === 11) { setIsQueueModalOpen(false); setAuthStep('app'); setActiveTab('hub'); }
     else if (stepNum === 12) { handleOpenIssueDetail(formattedPublicIssues[0]); }
     else if (stepNum === 13) { setIsTimelineModalOpen(false); setIsTranscriptModalOpen(true); }
-    else if (stepNum === 14) { setIsTranscriptModalOpen(false); setActiveRole('officer'); }
-    else if (stepNum === 15) { setActiveRole('officer'); }
-    else if (stepNum === 16) { setActiveRole('admin'); }
+    else if (stepNum === 14) { setIsTranscriptModalOpen(false); setActiveRole('OFFICER'); setAuthStep('app'); }
+    else if (stepNum === 15) { setActiveRole('OFFICER'); setAuthStep('app'); }
+    else if (stepNum === 16) { setActiveRole('ADMIN'); setAuthStep('app'); }
     else if (stepNum >= 17) { setAuthStep('app'); handleOpenIssueDetail(formattedPublicIssues[0]); }
   };
 
@@ -203,7 +210,7 @@ export default function App() {
               CivicPulse
             </h1>
             <p style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
-              AI Civic Reporting & Satellite Heatmap Portal
+              Government AI Civic Reporting & Satellite Heatmap Portal
             </p>
           </div>
         </div>
@@ -220,17 +227,24 @@ export default function App() {
           </button>
 
           {isAuthenticated && userProfile ? (
-            <button
-              onClick={() => setActiveTab('profile')}
-              className="glass-btn"
-              style={{ fontSize: '0.8rem', borderColor: 'rgba(16, 185, 129, 0.4)', color: '#6ee7b7' }}
-            >
-              <User size={14} />
-              <span>{userProfile.email.split('@')[0]}</span>
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span className={`badge ${activeRole === 'CITIZEN' ? 'badge-low' : activeRole === 'OFFICER' ? 'badge-medium' : 'badge-escalated'}`}>
+                {activeRole}
+              </span>
+
+              <button
+                onClick={handleLogout}
+                className="glass-btn glass-btn-danger"
+                style={{ fontSize: '0.8rem', padding: '6px 12px' }}
+                title="Logout"
+              >
+                <LogOut size={14} />
+                <span>Logout ({userProfile.email ? userProfile.email.split('@')[0] : userProfile.officer_id || 'User'})</span>
+              </button>
+            </div>
           ) : (
             <button
-              onClick={() => setAuthStep('signup')}
+              onClick={() => setAuthStep('login')}
               className="glass-btn"
               style={{ fontSize: '0.8rem' }}
             >
@@ -238,41 +252,12 @@ export default function App() {
               <span>Sign Up / Log In</span>
             </button>
           )}
-
-          <div style={{ display: 'flex', background: '#090d16', padding: '3px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
-            <button
-              onClick={() => { setActiveRole('citizen'); if (isAuthenticated) setAuthStep('app'); }}
-              className={`glass-btn ${activeRole === 'citizen' ? 'glass-btn-primary' : ''}`}
-              style={{ fontSize: '0.78rem', padding: '5px 10px', border: 'none' }}
-            >
-              <UserCheck size={13} />
-              <span>Citizen</span>
-            </button>
-
-            <button
-              onClick={() => setActiveRole('officer')}
-              className={`glass-btn ${activeRole === 'officer' ? 'glass-btn-primary' : ''}`}
-              style={{ fontSize: '0.78rem', padding: '5px 10px', border: 'none' }}
-            >
-              <Shield size={13} />
-              <span>Officer</span>
-            </button>
-
-            <button
-              onClick={() => setActiveRole('admin')}
-              className={`glass-btn ${activeRole === 'admin' ? 'glass-btn-primary' : ''}`}
-              style={{ fontSize: '0.78rem', padding: '5px 10px', border: 'none' }}
-            >
-              <LayoutDashboard size={13} />
-              <span>Admin</span>
-            </button>
-          </div>
         </div>
       </header>
 
       {/* Main Container */}
-      <main style={{ flex: 1, padding: '14px', marginBottom: isAuthenticated && activeRole === 'citizen' ? '70px' : '0' }}>
-        {activeRole === 'citizen' ? (
+      <main style={{ flex: 1, padding: '14px', marginBottom: isAuthenticated && activeRole === 'CITIZEN' ? '70px' : '0' }}>
+        {!isAuthenticated || authStep !== 'app' ? (
           <>
             {authStep === 'splash' && (
               <SplashScreen onStart={() => setAuthStep('language')} />
@@ -327,8 +312,11 @@ export default function App() {
             {authStep === 'recovery' && (
               <RecoveryScreen onBackToLogin={() => setAuthStep('login')} />
             )}
-
-            {authStep === 'app' && (
+          </>
+        ) : (
+          /* AUTHENTICATED DASHBOARDS BASED ON BACKEND USER ROLE */
+          <>
+            {activeRole === 'CITIZEN' && (
               <>
                 {activeTab === 'home' && (
                   <HomeScreen
@@ -375,23 +363,27 @@ export default function App() {
                 )}
               </>
             )}
+
+            {(activeRole === 'OFFICER' || activeRole === 'SUPERVISOR') && (
+              <OfficerPortal
+                lang={lang}
+                complaints={complaints}
+                setComplaints={setComplaints}
+              />
+            )}
+
+            {activeRole === 'ADMIN' && (
+              <AdminDashboard
+                lang={lang}
+                complaints={complaints}
+              />
+            )}
           </>
-        ) : activeRole === 'officer' ? (
-          <OfficerPortal
-            lang={lang}
-            complaints={complaints}
-            setComplaints={setComplaints}
-          />
-        ) : (
-          <AdminDashboard
-            lang={lang}
-            complaints={complaints}
-          />
         )}
       </main>
 
       {/* Citizen Bottom Navigation Bar */}
-      {isAuthenticated && activeRole === 'citizen' && authStep === 'app' && (
+      {isAuthenticated && activeRole === 'CITIZEN' && authStep === 'app' && (
         <NavigationBar activeTab={activeTab} setActiveTab={setActiveTab} />
       )}
 
