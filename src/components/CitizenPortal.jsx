@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import CivicHeatmapView from './citizen/CivicHeatmapView';
 import ReportIssueContainer from './intake/ReportIssueContainer';
+import ProofOfWorkView from './citizen/ProofOfWorkView';
 import { apiService } from '../utils/apiService';
 
 export default function CitizenPortal({ lang, complaints = [], setComplaints, userAuth }) {
@@ -325,74 +326,12 @@ export default function CitizenPortal({ lang, complaints = [], setComplaints, us
 
                   {/* CITIZEN RESOLUTION VERIFICATION CARD */}
                   {(selectedComplaint.status === 'PENDING_CONFIRMATION' || selectedComplaint.workflow_state === 'WAITING_FOR_CITIZEN_VERIFICATION' || selectedComplaint.status === 'RESOLVED') && (
-                    <div style={{ background: '#090d16', border: '1px solid #10b981', padding: '20px', borderRadius: '12px', marginBottom: '24px' }}>
-                      <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#6ee7b7', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <CheckSquare size={20} />
-                        <span>Resolution Evidence Verification</span>
-                      </h3>
-
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '16px' }}>
-                        <div>
-                          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Before Repair Photo:</div>
-                          <img 
-                            src={selectedComplaint.photoUrl || "https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?auto=format&fit=crop&w=600&q=80"} 
-                            alt="Before" 
-                            style={{ width: '100%', height: '160px', objectFit: 'cover', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.1)' }} 
-                          />
-                        </div>
-
-                        <div>
-                          <div style={{ fontSize: '0.78rem', color: '#6ee7b7', fontWeight: 700, marginBottom: '4px' }}>After Repair Evidence Photo:</div>
-                          <img 
-                            src={selectedComplaint.afterPhotoUrl || "https://images.unsplash.com/photo-1517649763962-0c623266010b?auto=format&fit=crop&w=600&q=80"} 
-                            alt="After Repair" 
-                            style={{ width: '100%', height: '160px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #10b981' }} 
-                          />
-                        </div>
-                      </div>
-
-                      {selectedComplaint.workNotes && (
-                        <div style={{ padding: '10px 14px', background: '#131c2e', borderRadius: '6px', fontSize: '0.85rem', color: '#f8fafc', marginBottom: '16px' }}>
-                          <strong>Officer Completion Notes:</strong> "{selectedComplaint.workNotes}"
-                        </div>
-                      )}
-
-                      {/* VERIFICATION PROMPT & BUTTONS */}
-                      {selectedComplaint.status !== 'RESOLVED' ? (
-                        <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.3)', textContent: 'center' }}>
-                          <h4 style={{ fontSize: '0.98rem', fontWeight: 800, color: '#ffffff', marginBottom: '10px', textAlign: 'center' }}>
-                            Has this civic issue been satisfactorily resolved in reality?
-                          </h4>
-
-                          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                            <button
-                              onClick={() => handleConfirmResolution(selectedComplaint.id)}
-                              className="glass-btn glass-btn-primary"
-                              style={{ background: '#10b981', borderColor: '#059669', padding: '10px 24px', fontSize: '0.88rem' }}
-                            >
-                              <CheckCircle2 size={16} />
-                              <span>YES, CONFIRM RESOLUTION</span>
-                            </button>
-
-                            <button
-                              onClick={() => setShowReopenModal(true)}
-                              className="glass-btn"
-                              style={{ background: '#ef4444', borderColor: '#dc2626', color: '#ffffff', padding: '10px 24px', fontSize: '0.88rem' }}
-                            >
-                              <X size={16} />
-                              <span>NO, REOPEN COMPLAINT</span>
-                            </button>
-                          </div>
-                          
-                          <div style={{ textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '10px' }}>
-                            ⏱️ 15-Day SLA Verification Window active. If no response after 15 days, Public Community Verification opens.
-                          </div>
-                        </div>
-                      ) : (
-                        <div style={{ padding: '10px 14px', background: 'rgba(16, 185, 129, 0.15)', borderRadius: '6px', color: '#6ee7b7', fontWeight: 700, textAlign: 'center', fontSize: '0.88rem' }}>
-                          ✓ RESOLUTION CONFIRMED & TICKET CLOSED
-                        </div>
-                      )}
+                    <div style={{ marginBottom: '24px' }}>
+                      <ProofOfWorkView
+                        issue={selectedComplaint}
+                        onConfirmResolution={handleConfirmResolution}
+                        onReopenComplaint={() => setShowReopenModal(true)}
+                      />
                     </div>
                   )}
 

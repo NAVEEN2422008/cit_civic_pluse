@@ -5,6 +5,7 @@ import {
   CheckSquare, Activity, AlertTriangle, Layers, PauseCircle, PlayCircle, Zap
 } from 'lucide-react';
 import CivicHeatmapView from './citizen/CivicHeatmapView';
+import ProofOfWorkView from './citizen/ProofOfWorkView';
 import { TN_DEPARTMENTS } from '../mockData';
 import { apiService } from '../utils/apiService';
 
@@ -493,6 +494,13 @@ export default function OfficerPortal({ lang, complaints = [], setComplaints }) 
               </div>
             </div>
           </div>
+
+          {/* PROOF OF WORK VERIFICATION PANEL FOR OFFICER */}
+          {(selectedComplaint.afterPhotoUrl || selectedComplaint.resolution_after_photo || selectedComplaint.status === 'PENDING_CONFIRMATION' || selectedComplaint.status === 'RESOLVED') && (
+            <div style={{ marginBottom: '24px' }}>
+              <ProofOfWorkView issue={selectedComplaint} isOfficer={true} />
+            </div>
+          )}
 
           {/* DYNAMIC ACTION MODALS */}
 
