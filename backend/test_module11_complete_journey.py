@@ -5,7 +5,7 @@ import uuid
 BASE_URL = "http://localhost:8000/api/v1"
 
 def test_module11_complete_journey_suite():
-    print("--- RUNNING CIVICPULSE MODULE 11 COMPLETE 20-STEP CITIZEN JOURNEY SUITE ---")
+    print("--- RUNNING CIVICPULSE MODULE 11 COMPLETE CITIZEN JOURNEY SUITE ---")
 
     # 1. Register new citizen with Aadhaar identity check
     test_email = f"journey_citizen_{uuid.uuid4().hex[:6]}@example.com"
