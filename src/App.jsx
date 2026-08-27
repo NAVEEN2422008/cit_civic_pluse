@@ -120,61 +120,40 @@ export default function App() {
       <SyncStatusBanner onOpenQueue={() => setIsQueueModalOpen(true)} />
 
       {/* Main Top Government Header */}
-      <header className="glass-panel" style={{
-        padding: '14px 20px',
-        margin: '12px 14px 0',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '12px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{
-            width: '36px',
-            height: '36px',
-            borderRadius: '8px',
-            background: 'var(--primary)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)'
-          }}>
+      <header className="app-header">
+        <div className="app-header-brand">
+          <div className="app-header-logo">
             <Building2 size={20} color="#ffffff" />
           </div>
-
-          <div>
-            <h1 style={{ fontSize: '1.15rem', fontWeight: 800, letterSpacing: '-0.3px', color: '#f8fafc' }}>
-              CivicPulse
-            </h1>
-            <p style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
-              Tamil Nadu State Government AI Civic Redressal & Satellite Map Engine
-            </p>
+          <div className="app-header-title">
+            <h1>CivicPulse</h1>
+            <p>Tamil Nadu AI Civic Redressal &amp; Satellite Map Engine</p>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+        <div className="app-header-actions">
           {isAuthenticated && userProfile ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <>
               <span className={`badge ${activeRole === 'CITIZEN' ? 'badge-low' : activeRole === 'OFFICER' ? 'badge-medium' : 'badge-escalated'}`}>
                 {activeRole}
               </span>
-
               <button
                 onClick={handleLogout}
                 className="glass-btn glass-btn-danger"
-                style={{ fontSize: '0.8rem', padding: '6px 12px' }}
-                title="Logout"
+                title={`Logout ${userProfile.email ? userProfile.email.split('@')[0] : userProfile.officer_id || 'User'}`}
+                style={{ padding: '7px 12px', fontSize: '0.8rem' }}
               >
                 <LogOut size={14} />
-                <span>Logout ({userProfile.email ? userProfile.email.split('@')[0] : userProfile.officer_id || 'User'})</span>
+                <span style={{ display: 'none' }} className="logout-label">
+                  {userProfile.email ? userProfile.email.split('@')[0] : userProfile.officer_id || 'User'}
+                </span>
               </button>
-            </div>
+            </>
           ) : (
             <button
               onClick={() => setAuthStep('login')}
               className="glass-btn"
-              style={{ fontSize: '0.8rem' }}
+              style={{ fontSize: '0.82rem', padding: '7px 14px' }}
             >
               <Lock size={14} />
               <span>Sign Up / Log In</span>
@@ -184,7 +163,7 @@ export default function App() {
       </header>
 
       {/* Main Container */}
-      <main style={{ flex: 1, padding: '14px', marginBottom: isAuthenticated && activeRole === 'CITIZEN' ? '70px' : '0' }}>
+      <main className="app-main" style={{ paddingBottom: isAuthenticated && activeRole === 'CITIZEN' ? 'calc(72px + 24px)' : 'var(--space-xl)' }}>
         {!isAuthenticated || authStep !== 'app' ? (
           <>
             {authStep === 'splash' && (

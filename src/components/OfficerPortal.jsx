@@ -222,6 +222,28 @@ export default function OfficerPortal({ lang, complaints = [], setComplaints }) 
             </button>
           ))}
         </div>
+        <button
+          onClick={() => {
+            const filtered = filteredComplaints;
+            const csv = [
+              ['ID', 'Priority', 'Title', 'Location', 'Status', 'SLA', 'Escalation'],
+              ...filtered.map(c => [c.id, c.priority, c.title, c.location, c.status, c.slaPolicy, c.escalationStatus])
+            ].map(row => row.map(cell => `"${String(cell || '').replace(/"/g, '""')}"`).join(',')).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `officer-report-${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+            alert(`✅ Exported ${filtered.length} complaint(s) to CSV`);
+          }}
+          className="glass-btn"
+          style={{ fontSize: '0.75rem', padding: '4px 10px', marginLeft: 'auto', borderColor: '#10b981', color: '#10b981' }}
+        >
+          <FileText size={14} />
+          <span>Export Report (CSV)</span>
+        </button>
       </div>
 
       {/* DASHBOARD TAB METRICS CARDS */}
@@ -472,6 +494,43 @@ export default function OfficerPortal({ lang, complaints = [], setComplaints }) 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <PauseCircle size={16} color="#a855f7" />
                     <span>Pause SLA Timer (Legitimate Condition)</span>
+                  </div>
+                  <ArrowRight size={16} />
+                </button>
+
+                <button
+                  onClick={async () => {
+                    try {
+                      const res = await fetch(`http://localhost:8000/api/v1/officer/issues/${selectedComplaint.id}/escalate`, {
+                        method: 'POST',
+                        headers: {
+                          'Authorization': `Bearer ${apiService.getToken()}`,
+                          'Content-Type': 'application/json'
+                        }
+                      });
+                      const data = await res.json();
+                      if (data.success) {
+                        alert(`✅ Issue escalated successfully!\n\n${data.message}`);
+                        setComplaints(prev => prev.map(c => c.id === selectedComplaint.id ? { 
+                          ...c, 
+                          escalationLevel: data.data.new_level,
+                          workflow_state: 'ESCALATED',
+                          status: 'ESCALATED'
+                        } : c));
+                        setSelectedComplaint(null);
+                      } else {
+                        alert('Failed to escalate: ' + (data.message || data.detail || 'Unknown error'));
+                      }
+                    } catch (err) {
+                      alert('Error: ' + (err.message || 'Network error - please try again'));
+                    }
+                  }}
+                  className="glass-btn"
+                  style={{ justifyContent: 'space-between', padding: '12px 16px', borderColor: '#ef4444', color: '#fca5a5' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <AlertTriangle size={16} color="#ef4444" />
+                    <span>Escalate to Supervisor (L2/L3)</span>
                   </div>
                   <ArrowRight size={16} />
                 </button>

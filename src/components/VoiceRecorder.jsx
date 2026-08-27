@@ -1,45 +1,104 @@
-import React, { useState } from 'react';
-import { Mic, MicOff, Volume2, Sparkles, CheckCircle } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Mic, MicOff, Volume2, Sparkles, CheckCircle, AlertCircle } from 'lucide-react';
+import { apiService } from '../utils/apiService';
 
 export default function VoiceRecorder({ lang, onTranscriptionComplete }) {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [transcribedText, setTranscribedText] = useState('');
+  const [error, setError] = useState('');
+  const [audioBlob, setAudioBlob] = useState(null);
+  
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
 
-  const sampleTamilPhrases = [
-    "மட்டுத்தாவணி பேருந்து நிலையம் அருகே குப்பை கொட்டி நாறுது, வழி முழுக்கவும் நாற்றம் பிடிச்சிருக்கு.",
-    "வேளச்சேரி ரயில் நிலையம் பக்கத்துல ட்ரைனேஜ் உடைஞ்சு ரோடு முழுக்க சாக்கடை தண்ணி தேங்கி நிற்குது.",
-    "காந்திபுரம் அவினாசி ரோட்டுல பெரிய குழி விழுந்துருக்கு, பைக் காரங்க விழுந்து அடிபடுது.",
-    "சேலம் ஜங்ஷன் மெயின் ரோட்டுல 4 தெருவிளக்கு எரியல, ராத்திரி நேரம் ரொம்ப இருட்டா இருக்கு."
-  ];
-
-  const sampleEngPhrases = [
-    "Large garbage dump overflowing near Mattuthavani bus stand causing severe bad odor.",
-    "Drainage pipe broken near Velachery railway station, sewage water flooded on road.",
-    "Dangerous deep road pothole on Avinashi Road near Gandhipuram signal.",
-    "Four streetlights broken and dark near Salem Railway Junction main road."
-  ];
-
-  const handleToggleRecord = () => {
-    if (!isRecording) {
+  const startRecording = async () => {
+    try {
+      setError('');
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+      
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+      
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        setAudioBlob(blob);
+        stream.getTracks().forEach(track => track.stop());
+        await processAudio(blob);
+      };
+      
+      mediaRecorder.start();
       setIsRecording(true);
       setTranscribedText('');
-    } else {
+    } catch (err) {
+      console.error('Microphone access denied:', err);
+      setError('Microphone access denied. Please allow microphone permission to record voice.');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
       setIsRecording(false);
       setIsProcessing(true);
+    }
+  };
 
-      // Simulate Sarvam AI Audio Processing latency
-      setTimeout(() => {
-        setIsProcessing(false);
-        const randomIdx = Math.floor(Math.random() * sampleTamilPhrases.length);
-        const textTa = sampleTamilPhrases[randomIdx];
-        const textEn = sampleEngPhrases[randomIdx];
-        
-        setTranscribedText(lang === 'ta' ? textTa : textEn);
+  const processAudio = async (blob) => {
+    try {
+      setIsProcessing(true);
+      setError('');
+      
+      const result = await apiService.processVoiceNote(blob);
+      
+      if (result.original_transcript) {
+        setTranscribedText(result.original_transcript);
         if (onTranscriptionComplete) {
-          onTranscriptionComplete({ textTa, textEn });
+          onTranscriptionComplete({
+            textTa: result.original_transcript,
+            textEn: result.translated_english_text || result.original_transcript,
+            audioBlob: blob
+          });
         }
-      }, 1500);
+      } else {
+        setError('Failed to process audio. Please try again or type your complaint.');
+      }
+    } catch (err) {
+      console.error('Voice processing error:', err);
+      setError('Failed to process voice recording. Please try again or type your complaint.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleToggleRecord = () => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  };
+
+  const handleDelete = () => {
+    setAudioBlob(null);
+    setTranscribedText('');
+    if (onTranscriptionComplete) {
+      onTranscriptionComplete(null);
+    }
+  };
+
+  const playRecording = () => {
+    if (audioBlob) {
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      audio.play();
     }
   };
 
@@ -58,9 +117,29 @@ export default function VoiceRecorder({ lang, onTranscriptionComplete }) {
           : 'Tap mic and speak your issue naturally in Tamil or English'}
       </p>
 
+      {error && (
+        <div style={{
+          marginBottom: '14px',
+          padding: '10px',
+          background: 'rgba(239, 68, 68, 0.1)',
+          border: '1px solid rgba(239, 68, 68, 0.3)',
+          borderRadius: '8px',
+          color: '#fca5a5',
+          fontSize: '0.85rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          justifyContent: 'center'
+        }}>
+          <AlertCircle size={16} />
+          <span>{error}</span>
+        </div>
+      )}
+
       <button
         onClick={handleToggleRecord}
         className={`glass-btn ${isRecording ? 'glass-btn-danger' : 'glass-btn-primary'}`}
+        disabled={isProcessing}
         style={{
           width: '76px',
           height: '76px',
@@ -69,21 +148,28 @@ export default function VoiceRecorder({ lang, onTranscriptionComplete }) {
           alignItems: 'center',
           justifyContent: 'center',
           margin: '0 auto',
-          boxShadow: isRecording ? '0 0 25px rgba(239, 68, 68, 0.7)' : '0 0 20px rgba(14, 165, 233, 0.5)'
+          boxShadow: isRecording ? '0 0 25px rgba(239, 68, 68, 0.7)' : '0 0 20px rgba(14, 165, 233, 0.5)',
+          opacity: isProcessing ? 0.6 : 1
         }}
       >
-        {isRecording ? <MicOff size={32} className="animate-pulse-red" /> : <Mic size={32} />}
+        {isProcessing ? (
+          <div className="animate-spin" style={{ width: 32, height: 32, border: '3px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%' }} />
+        ) : isRecording ? (
+          <MicOff size={32} className="animate-pulse-red" />
+        ) : (
+          <Mic size={32} />
+        )}
       </button>
 
       <div style={{ marginTop: '12px', fontSize: '0.85rem', color: isRecording ? '#fca5a5' : 'var(--text-dim)' }}>
-        {isRecording
-          ? (lang === 'ta' ? '🎙️ கேட்கிறது... (பேசி முடித்ததும் மீண்டும் அழுத்தவும்)' : '🎙️ Listening... (Tap again when finished)')
-          : isProcessing
+        {isProcessing
           ? (lang === 'ta' ? '⚡ Sarvam AI உரையாக மாற்றுகிறது...' : '⚡ Sarvam AI Processing Audio...')
+          : isRecording
+          ? (lang === 'ta' ? '🎙️ கேட்கிறது... (பேசி முடித்ததும் மீண்டும் அழுத்தவும்)' : '🎙️ Listening... (Tap again when finished)')
           : (lang === 'ta' ? 'பேச மைக் அழுத்தவும்' : 'Tap Mic to Speak')}
       </div>
 
-      {transcribedText && (
+      {(audioBlob || transcribedText) && !error && (
         <div style={{
           marginTop: '16px',
           padding: '14px',
@@ -96,9 +182,29 @@ export default function VoiceRecorder({ lang, onTranscriptionComplete }) {
             <CheckCircle size={16} />
             <span>{lang === 'ta' ? 'Sarvam AI மாற்றிய உரை:' : 'Sarvam AI Transcribed Text:'}</span>
           </div>
-          <p style={{ fontSize: '0.9rem', color: 'var(--text-main)', fontStyle: 'italic' }}>
+          <p style={{ fontSize: '0.9rem', color: 'var(--text-main)', fontStyle: 'italic', marginBottom: '10px' }}>
             "{transcribedText}"
           </p>
+          
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {audioBlob && (
+              <button
+                onClick={playRecording}
+                className="glass-btn glass-btn-primary"
+                style={{ fontSize: '0.8rem', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '4px' }}
+              >
+                <Volume2 size={14} />
+                {lang === 'ta' ? 'சப்தம் கேளுங்கள்' : 'Play Recording'}
+              </button>
+            )}
+            <button
+              onClick={handleDelete}
+              className="glass-btn glass-btn-danger"
+              style={{ fontSize: '0.8rem', padding: '6px 12px' }}
+            >
+              {lang === 'ta' ? 'நீக்கு' : 'Delete'}
+            </button>
+          </div>
         </div>
       )}
     </div>

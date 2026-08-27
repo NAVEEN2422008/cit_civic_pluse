@@ -395,3 +395,46 @@ def submit_resolution_evidence(
         success=True,
         message="Resolution evidence uploaded successfully. Issue submitted for Citizen Verification."
     )
+
+# 9. MANUAL ESCALATION ENDPOINT
+@router.post("/issues/{issue_id}/escalate", response_model=StandardResponse)
+def escalate_issue(
+    issue_id: str,
+    request: Request,
+    current_user: User = Depends(require_roles(["OFFICER", "SUPERVISOR", "ADMIN"])),
+    db: Session = Depends(get_db)
+):
+    """Manually escalate an issue to a higher officer level."""
+    issue = db.query(Issue).filter(Issue.id == issue_id).first()
+    if not issue:
+        raise HTTPException(status_code=404, detail="Issue not found")
+    
+    prev_level = issue.escalation_level
+    prev_state = issue.workflow_state
+    
+    new_level = (issue.escalation_level or 0) + 1
+    issue.escalation_level = new_level
+    issue.escalation_status = "MANUALLY_ESCALATED"
+    issue.workflow_state = "ESCALATED"
+    issue.sla_status = "ESCALATED"
+    
+    from app.models import EscalationRecord
+    escalation = EscalationRecord(
+        issue_id=issue.id,
+        from_officer_id=current_user.id,
+        to_officer_id="L" + str(new_level + 1) + "_SUPERVISOR",
+        level=new_level,
+        reason=f"Manually escalated by {current_user.officer_id or current_user.email} from L{new_level} to L{new_level + 1}",
+        status="ESCALATED"
+    )
+    db.add(escalation)
+    db.commit()
+    
+    log_officer_action(db, current_user, "MANUAL_ESCALATION", issue.id, prev_state, "ESCALATED", 
+                       f"Manually escalated from Level {prev_level} to Level {new_level}")
+    
+    return StandardResponse(
+        success=True,
+        message=f"Issue {issue_id} manually escalated to Level {new_level}. Supervisor will be notified.",
+        data={"new_level": new_level, "previous_level": prev_level}
+    )

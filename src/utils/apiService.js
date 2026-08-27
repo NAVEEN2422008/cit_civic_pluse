@@ -68,32 +68,60 @@ export const apiService = {
 
   // 5. Citizen Login
   login: async ({ email, password, otp_code }) => {
-    const res = await fetch(`${API_BASE_URL}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, otp_code })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || 'Login failed');
-    if (data.access_token) {
-      apiService.setTokens(data.access_token, data.refresh_token);
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, otp_code })
+      });
+      let data;
+      try {
+        data = await res.json();
+      } catch (parseErr) {
+        throw new Error(`Server error (${res.status}): Unable to parse response`);
+      }
+      if (!res.ok) {
+        throw new Error(data.detail || data.message || 'Login failed. Invalid email or OTP.');
+      }
+      if (data.access_token) {
+        apiService.setTokens(data.access_token, data.refresh_token);
+      }
+      return data;
+    } catch (err) {
+      if (err.name === 'TypeError' && err.message === 'Failed to fetch') {
+        throw new Error('Network error: Cannot reach server. Please ensure the backend is running on port 8000.');
+      }
+      throw err;
     }
-    return data;
   },
 
   // 5b. Officer Login
   officerLogin: async ({ officer_id, password }) => {
-    const res = await fetch(`${API_BASE_URL}/auth/officer-login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ officer_id, password })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || 'Officer login failed');
-    if (data.access_token) {
-      apiService.setTokens(data.access_token, data.refresh_token);
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/officer-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ officer_id, password })
+      });
+      let data;
+      try {
+        data = await res.json();
+      } catch (parseErr) {
+        throw new Error(`Server error (${res.status}): Unable to parse response`);
+      }
+      if (!res.ok) {
+        throw new Error(data.detail || data.message || 'Invalid Officer ID or password');
+      }
+      if (data.access_token) {
+        apiService.setTokens(data.access_token, data.refresh_token);
+      }
+      return data;
+    } catch (err) {
+      if (err.name === 'TypeError' && err.message === 'Failed to fetch') {
+        throw new Error('Network error: Cannot reach server. Please ensure the backend is running on port 8000.');
+      }
+      throw err;
     }
-    return data;
   },
 
   // 6. Get Protected User Profile
@@ -244,6 +272,23 @@ export const apiService = {
   },
 
   // --- AI BACKEND INTEGRATION ENDPOINTS ---
+
+  // Create Issue (complaint)
+  createIssue: async (issueData) => {
+    const token = apiService.getToken();
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const res = await fetch(`${API_BASE_URL}/issues/create`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(issueData)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Failed to create issue');
+    return data;
+  },
 
   submitComplaintAi: async (data) => {
     const res = await fetch(`${API_BASE_URL}/complaints/submit`, {
