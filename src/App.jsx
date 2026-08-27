@@ -20,7 +20,6 @@ import TranscriptReviewModal from './components/citizen/TranscriptReviewModal';
 import ComplaintTimelineModal from './components/citizen/ComplaintTimelineModal';
 import ResolutionVerificationModal from './components/citizen/ResolutionVerificationModal';
 import ReportIssueContainer from './components/intake/ReportIssueContainer';
-import RealPersonScenarioRunner from './components/citizen/RealPersonScenarioRunner';
 
 import OfficerPortal from './components/OfficerPortal';
 import AdminDashboard from './components/AdminDashboard';
@@ -40,8 +39,6 @@ export default function App() {
   const [isTranscriptModalOpen, setIsTranscriptModalOpen] = useState(false);
   const [isTimelineModalOpen, setIsTimelineModalOpen] = useState(false);
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
-  const [isDemoRunnerOpen, setIsDemoRunnerOpen] = useState(false);
-  const [isScenarioRunnerOpen, setIsScenarioRunnerOpen] = useState(false);
   const [selectedIssueDetail, setSelectedIssueDetail] = useState(null);
 
   const [registrationData, setRegistrationData] = useState({ email: '', password: '', demoOtp: '' });
@@ -157,17 +154,6 @@ export default function App() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          
-          {/* REAL PERSON CRISIS SIMULATOR BUTTON */}
-          <button
-            onClick={() => setIsScenarioRunnerOpen(!isScenarioRunnerOpen)}
-            className="glass-btn"
-            style={{ fontSize: '0.8rem', padding: '6px 12px', borderColor: '#38bdf8', color: '#38bdf8' }}
-          >
-            <Compass size={14} />
-            <span>10 Real-Person Scenarios</span>
-          </button>
-
           {isAuthenticated && userProfile ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span className={`badge ${activeRole === 'CITIZEN' ? 'badge-low' : activeRole === 'OFFICER' ? 'badge-medium' : 'badge-escalated'}`}>
@@ -196,13 +182,6 @@ export default function App() {
           )}
         </div>
       </header>
-
-      {/* REAL PERSON SCENARIOS RUNNER MODAL / VIEW */}
-      {isScenarioRunnerOpen && (
-        <div style={{ margin: '14px 14px 0' }}>
-          <RealPersonScenarioRunner userAuth={userProfile} />
-        </div>
-      )}
 
       {/* Main Container */}
       <main style={{ flex: 1, padding: '14px', marginBottom: isAuthenticated && activeRole === 'CITIZEN' ? '70px' : '0' }}>

@@ -124,23 +124,6 @@ async function runFullInteractiveTest() {
     await page.screenshot({ path: path.join(OUTPUT_DIR, '08_state_command_center.png') });
     console.log('  ✓ PASS: Captured 08_state_command_center.png');
 
-    // TEST 9: 10 REAL-PERSON CRISIS SIMULATOR
-    console.log('\n[TEST 9/11] 📸 Running 10 Real-Person Scenario Simulator...');
-    await page.evaluate(() => {
-      const btns = Array.from(document.querySelectorAll('button'));
-      const scenarioBtn = btns.find(b => b.innerText.includes('10 Real-Person Scenarios'));
-      if (scenarioBtn) scenarioBtn.click();
-    });
-    await new Promise(r => setTimeout(r, 1500));
-    await page.evaluate(() => {
-      const btns = Array.from(document.querySelectorAll('button'));
-      const runBtn = btns.find(b => b.innerText.includes('Simulate') || b.innerText.includes('Run'));
-      if (runBtn) runBtn.click();
-    });
-    await new Promise(r => setTimeout(r, 2500));
-    await page.screenshot({ path: path.join(OUTPUT_DIR, '09_scenario_simulator_running.png') });
-    console.log('  ✓ PASS: Captured 09_scenario_simulator_running.png');
-
     // TEST 10: PROOF OF WORK COMPARISON SLIDER
     console.log('\n[TEST 10/11] 📸 Testing Proof of Work Verification View...');
     await page.evaluate(() => {
