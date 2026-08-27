@@ -5,9 +5,10 @@ import {
   CheckSquare, Activity, AlertTriangle, Layers, PauseCircle, PlayCircle, Zap
 } from 'lucide-react';
 import CivicHeatmapView from './citizen/CivicHeatmapView';
+import { TN_DEPARTMENTS } from '../mockData';
 import { apiService } from '../utils/apiService';
 
-export default function OfficerPortal({ lang, complaints, setComplaints }) {
+export default function OfficerPortal({ lang, complaints = [], setComplaints }) {
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'assigned' | 'inspections' | 'work_orders' | 'approvals' | 'map'
   const [selectedDept, setSelectedDept] = useState('ALL');
   const [selectedComplaint, setSelectedComplaint] = useState(null);
@@ -51,6 +52,11 @@ export default function OfficerPortal({ lang, complaints, setComplaints }) {
     completion_latitude: 13.0827,
     completion_longitude: 80.2707
   });
+
+  // Department List from mockData (supports Object or Array)
+  const deptList = Array.isArray(TN_DEPARTMENTS) 
+    ? TN_DEPARTMENTS 
+    : Object.values(TN_DEPARTMENTS);
 
   // Filtered list based on department selection
   const filteredComplaints = selectedDept === 'ALL'
@@ -134,7 +140,7 @@ export default function OfficerPortal({ lang, complaints, setComplaints }) {
       slaPaused: true,
       slaPauseReason: pauseReason,
       history: [
-        ...c.history,
+        ...(c.history || []),
         {
           step: `SLA Paused (${pauseReason})`,
           note: `Officer logged legitimate pause reason: ${pauseReason}`,
@@ -204,14 +210,14 @@ export default function OfficerPortal({ lang, complaints, setComplaints }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
         <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)' }}>Filter Department:</span>
         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-          {['ALL', ...TN_DEPARTMENTS.map(d => d.id)].map(dept => (
+          {['ALL', ...deptList.map(d => d.id)].map(dept => (
             <button
               key={dept}
               onClick={() => setSelectedDept(dept)}
               className={`glass-btn ${selectedDept === dept ? 'glass-btn-primary' : ''}`}
               style={{ fontSize: '0.75rem', padding: '4px 10px' }}
             >
-              {dept === 'ALL' ? 'All Departments' : TN_DEPARTMENTS.find(d => d.id === dept)?.nameEn || dept}
+              {dept === 'ALL' ? 'All Departments' : deptList.find(d => d.id === dept)?.nameEn || dept}
             </button>
           ))}
         </div>
