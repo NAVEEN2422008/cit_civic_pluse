@@ -1,29 +1,29 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+Tamil:wght@400;500;600;700&display=swap');
 
 :root {
-  /* Modern Obsidian & Indigo Palette */
-  --bg-primary: #090d16;
-  --bg-surface: #131c2e;
-  --bg-card: #131c2e;
-  --bg-card-hover: #1c2842;
-  --border-color: rgba(255, 255, 255, 0.08);
-  --border-glow: #6366f1;
+  /* Modern Executive Obsidian, Deep Sapphire & Cyan Palette */
+  --bg-primary: #060911;
+  --bg-surface: #0f172a;
+  --bg-card: #0f172a;
+  --bg-card-hover: #1e293b;
+  --border-color: rgba(255, 255, 255, 0.1);
+  --border-glow: #38bdf8;
   
-  --primary-rgb: 99, 102, 241;
-  --primary: #6366f1;         /* Indigo Primary */
-  --primary-hover: #4f46e5;
+  --primary-rgb: 56, 189, 248;
+  --primary: #38bdf8;         /* Cyan Primary */
+  --primary-hover: #0284c7;
   --accent-gold: #f59e0b;
   --accent-red: #f43f5e;       /* Rose Red */
   --accent-green: #10b981;     /* Emerald Green */
-  --accent-cyan: #06b6d4;
+  --accent-indigo: #6366f1;
   
   --text-main: #f8fafc;
   --text-muted: #94a3b8;
   --text-dim: #64748b;
   
   --font-main: 'Plus Jakarta Sans', 'Noto Sans Tamil', -apple-system, BlinkMacSystemFont, sans-serif;
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.35);
-  --radius: 10px;
+  --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.45);
+  --radius: 12px;
 }
 
 * {
@@ -33,7 +33,7 @@
 }
 
 body {
-  background-color: var(--bg-primary);
+  background: radial-gradient(circle at 50% 0%, #0f172a 0%, #060911 100%);
   color: var(--text-main);
   font-family: var(--font-main);
   min-height: 100vh;
@@ -43,20 +43,23 @@ body {
 
 /* Panel & Card Styling */
 .glass-panel {
-  background: var(--bg-surface);
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(16px);
   border: 1px solid var(--border-color);
   border-radius: var(--radius);
   box-shadow: var(--shadow-lg);
-  transition: border-color 0.15s ease, background 0.15s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .glass-panel:hover {
-  border-color: rgba(255, 255, 255, 0.16);
+  border-color: rgba(56, 189, 248, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.55), 0 0 20px rgba(56, 189, 248, 0.08);
 }
 
 .glass-btn {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   color: var(--text-main);
   padding: 9px 16px;
   border-radius: 8px;
