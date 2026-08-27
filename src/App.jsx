@@ -19,7 +19,6 @@ import OfflineQueueModal from './components/citizen/OfflineQueueModal';
 import TranscriptReviewModal from './components/citizen/TranscriptReviewModal';
 import ComplaintTimelineModal from './components/citizen/ComplaintTimelineModal';
 import ResolutionVerificationModal from './components/citizen/ResolutionVerificationModal';
-import DemoRunnerModal from './components/citizen/DemoRunnerModal';
 import ReportIssueContainer from './components/intake/ReportIssueContainer';
 import RealPersonScenarioRunner from './components/citizen/RealPersonScenarioRunner';
 
@@ -167,16 +166,6 @@ export default function App() {
           >
             <Compass size={14} />
             <span>10 Real-Person Scenarios</span>
-          </button>
-
-          {/* Interactive Demo Walkthrough Trigger Button */}
-          <button
-            onClick={() => setIsDemoRunnerOpen(true)}
-            className="glass-btn glass-btn-primary"
-            style={{ fontSize: '0.8rem', padding: '6px 12px' }}
-          >
-            <PlayCircle size={14} />
-            <span>20-Step Journey</span>
           </button>
 
           {isAuthenticated && userProfile ? (
@@ -362,12 +351,6 @@ export default function App() {
         isOpen={isTimelineModalOpen}
         onClose={() => setIsTimelineModalOpen(false)}
         issueDetail={selectedIssueDetail}
-      />
-
-      <DemoRunnerModal
-        isOpen={isDemoRunnerOpen}
-        onClose={() => setIsDemoRunnerOpen(false)}
-        userAuth={userProfile}
       />
 
     </div>
