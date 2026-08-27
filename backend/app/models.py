@@ -137,6 +137,7 @@ class Issue(Base):
     offline_submission_id = Column(String, unique=True, index=True, nullable=True)
     reporter_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
     assigned_officer_id = Column(String, ForeignKey("users.id"), nullable=True, index=True)
+    department_id = Column(String, default="HIGHWAYS", nullable=True)
     
     # Dual-Text & Sarvam AI Language Fields
     original_description = Column(Text, nullable=True)
