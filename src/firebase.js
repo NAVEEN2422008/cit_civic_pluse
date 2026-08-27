@@ -88,18 +88,59 @@ export const subscribeToMyComplaints = (userEmail, callback) => {
 };
 
 /**
- * Upload proof photo to Firebase Storage
+ * Convert an image File/Blob to a Base64 Data URL string
+ * to store images directly inside Firestore document fields.
+ */
+export const fileToBase64 = (file) => {
+  return new Promise((resolve, reject) => {
+    if (!file) {
+      resolve(null);
+      return;
+    }
+    if (typeof file === 'string') {
+      // Already a URL or Base64 string
+      resolve(file);
+      return;
+    }
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = (error) => reject(error);
+  });
+};
+
+/**
+ * Upload & store image directly inside Firestore document fields
+ * as Base64 Data URL string (No separate Storage bucket needed).
+ */
+export const uploadProofImageToFirestore = async (file, issueId, fieldName = 'after_photo_base64') => {
+  try {
+    const base64String = await fileToBase64(file);
+    if (issueId && base64String) {
+      const issueDocRef = doc(db, 'issues', issueId);
+      await updateDoc(issueDocRef, {
+        [fieldName]: base64String,
+        updated_at: serverTimestamp()
+      });
+    }
+    return base64String;
+  } catch (error) {
+    console.error("Error storing image in Firestore:", error);
+    return null;
+  }
+};
+
+/**
+ * Upload proof photo to Firebase Storage (with Base64 fallback)
  */
 export const uploadProofImage = async (file, pathPrefix = 'evidence') => {
   try {
-    const fileName = `${pathPrefix}/${Date.now()}_${file.name}`;
-    const storageRef = ref(storage, fileName);
-    const snapshot = await uploadBytes(storageRef, file);
-    const downloadURL = await getDownloadURL(snapshot.ref);
-    return downloadURL;
+    if (typeof file === 'string') return file;
+    // Store directly as Base64 string for zero-storage setup
+    const base64 = await fileToBase64(file);
+    return base64;
   } catch (error) {
     console.error("Firebase Storage Upload Error:", error);
-    // Return mock fallback image if offline or demo mode
     return "https://images.unsplash.com/photo-1517649763962-0c623266010b?auto=format&fit=crop&w=600&q=80";
   }
 };
