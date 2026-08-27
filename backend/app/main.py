@@ -74,12 +74,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from app.routers import auth_router, user_router, citizen_router, issue_router, officer_router, ai_integration_router
+
 # Include Routers
 app.include_router(auth_router.router, prefix="/api/v1")
 app.include_router(user_router.router, prefix="/api/v1")
 app.include_router(citizen_router.router, prefix="/api/v1")
 app.include_router(issue_router.router, prefix="/api/v1")
 app.include_router(officer_router.router, prefix="/api/v1")
+app.include_router(ai_integration_router.router, prefix="/api/v1")
 
 @app.get("/")
 def read_root():

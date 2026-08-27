@@ -241,5 +241,60 @@ export const apiService = {
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || 'Failed to submit resolution verification');
     return data;
+  },
+
+  // --- AI BACKEND INTEGRATION ENDPOINTS ---
+
+  submitComplaintAi: async (data) => {
+    const res = await fetch(`${API_BASE_URL}/complaints/submit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return res.json();
+  },
+
+  uploadMediaPii: async (file, lat, lon) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (lat) formData.append('client_latitude', lat.toString());
+    if (lon) formData.append('client_longitude', lon.toString());
+    const res = await fetch(`${API_BASE_URL}/media/upload`, { method: 'POST', body: formData });
+    return res.json();
+  },
+
+  processVoiceNote: async (audioBlob) => {
+    const formData = new FormData();
+    formData.append('audio_file', audioBlob, 'voicenote.mp3');
+    const res = await fetch(`${API_BASE_URL}/audio/process-voice-complaint`, { method: 'POST', body: formData });
+    return res.json();
+  },
+
+  validateImageDirect: async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch(`${API_BASE_URL}/ai/validate-image/direct`, { method: 'POST', body: formData });
+    return res.json();
+  },
+
+  fetchHeatmapAnalytics: async (dept) => {
+    const url = new URL(`${API_BASE_URL}/complaints/analytics/heatmap`);
+    if (dept) url.searchParams.append('department', dept);
+    const res = await fetch(url.toString());
+    return res.json();
+  },
+
+  upvoteComplaintAi: async (complaintId, userId) => {
+    const res = await fetch(`${API_BASE_URL}/complaints/${complaintId}/upvote?user_id=${userId}`, { method: 'POST' });
+    return res.json();
+  },
+
+  updateComplaintStatusAi: async (complaintId, status, assignedWorkerName, resolutionNotes) => {
+    const res = await fetch(`${API_BASE_URL}/complaints/${complaintId}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, assigned_worker_name: assignedWorkerName, resolution_notes: resolutionNotes })
+    });
+    return res.json();
   }
 };
