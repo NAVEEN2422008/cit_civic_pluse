@@ -67,6 +67,12 @@ const TN_STATE_BORDER = [
   [13.50, 80.25]
 ];
 
+// Strict Tamil Nadu Geographic Bounding Box
+const TN_BOUNDS = [
+  [8.08, 76.22],  // South-West (Kanyakumari / Kerala border)
+  [13.55, 80.35]  // North-East (Tiruvallur / Chennai border)
+];
+
 // World Outer Bounds for Inverted Mask (Hides everything outside TN)
 const WORLD_MASK_POLYGON = [
   [
