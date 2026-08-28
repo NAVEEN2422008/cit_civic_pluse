@@ -17,11 +17,47 @@ export default function MultilingualTextStep({
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioUrl, setAudioUrl] = useState(null);
   const [isProcessingSarvam, setIsProcessingSarvam] = useState(false);
+  const [liveEnglishTranslation, setLiveEnglishTranslation] = useState('');
+  const [isTranslatingText, setIsTranslatingText] = useState(false);
 
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const timerRef = useRef(null);
   const audioRef = useRef(null);
+  const translateTimerRef = useRef(null);
+
+  // Live real-time debounced text translation to English for any typed regional text
+  useEffect(() => {
+    if (!description || !description.trim() || language === 'English') {
+      setLiveEnglishTranslation('');
+      setIsTranslatingText(false);
+      return;
+    }
+
+    if (translateTimerRef.current) clearTimeout(translateTimerRef.current);
+    setIsTranslatingText(true);
+
+    translateTimerRef.current = setTimeout(async () => {
+      try {
+        let en = '';
+        try {
+          en = await translateText(description.trim(), language, 'English');
+        } catch {
+          const g = await translateWithGemini(description.trim(), language, 'English');
+          en = g?.text || '';
+        }
+        setLiveEnglishTranslation(en);
+      } catch (err) {
+        console.warn('Live translation error:', err);
+      } finally {
+        setIsTranslatingText(false);
+      }
+    }, 600);
+
+    return () => {
+      if (translateTimerRef.current) clearTimeout(translateTimerRef.current);
+    };
+  }, [description, language]);
 
   useEffect(() => {
     return () => {
@@ -257,11 +293,38 @@ export default function MultilingualTextStep({
         </button>
       </div>
 
+      {/* LIVE ENGLISH TRANSLATION PREVIEW (For Regional Language Texts) */}
+      {language !== 'English' && (description?.trim() || isTranslatingText) && (
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(12, 74, 62, 0.12) 0%, rgba(15, 23, 42, 0.6) 100%)',
+          border: '1px solid rgba(46, 158, 122, 0.3)',
+          borderRadius: '10px',
+          padding: '10px 14px',
+          marginTop: '2px'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+            <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#2e9e7a', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Globe size={13} color="#2e9e7a" /> English Translation (ஆங்கில மொழிபெயர்ப்பு):
+            </span>
+            {isTranslatingText ? (
+              <span style={{ fontSize: '0.68rem', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Loader2 size={11} className="animate-spin" /> Translating...
+              </span>
+            ) : (
+              <span style={{ fontSize: '0.65rem', color: '#2e9e7a', fontWeight: 600 }}>✓ AI Ready for Officer Routing</span>
+            )}
+          </div>
+          <div style={{ fontSize: '0.86rem', color: '#e6f0ed', lineHeight: 1.45, fontStyle: 'italic' }}>
+            {liveEnglishTranslation || (isTranslatingText ? 'Translating to English for department routing...' : description)}
+          </div>
+        </div>
+      )}
+
       {/* GEMINI AI TRANSCRIPTION LOADING INDICATOR */}
       {isProcessingSarvam && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: '#38bdf8', padding: '6px 12px', background: 'rgba(56, 189, 248, 0.1)', borderRadius: '6px', border: '1px solid rgba(56, 189, 248, 0.2)' }}>
           <Loader2 size={14} className="animate-spin" />
-          <span>{language === 'Tamil' ? 'Gemini AI Speech-to-Text குரலை உரையாக மாற்றுகிறது...' : 'Gemini AI Speech-to-Text transcribing audio into text box...'}</span>
+          <span>{language === 'Tamil' ? 'Sarvam AI Speech-to-Text குரலை உரையாக மாற்றுகிறது...' : 'Sarvam AI Speech-to-Text transcribing audio into text box...'}</span>
         </div>
       )}
 
