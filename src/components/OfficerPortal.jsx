@@ -4,10 +4,12 @@ import {
   AlertTriangle, Clock, CheckCircle2, TrendingUp, MapPin,
   ChevronRight, Search, RefreshCw, User, X, Wrench,
   ShieldCheck, Award, Flame, MessageSquare, Building2, ListChecks, Users as UsersIcon,
-  Layers, Compass, ZoomIn, ZoomOut
+  Layers, Compass, ZoomIn, ZoomOut, Eye, Camera
 } from 'lucide-react';
 import { apiService } from '../utils/apiService';
 import { routeIssue } from '../utils/routingEngine';
+import OfficerProgressUpload from './officer/OfficerProgressUpload';
+import { listProgressForIssue, addProgressEntry } from '../utils/progressStore';
 
 /* ============================================================
    OFFICER PORTAL v4 — Role-scoped civic operations workspace.
@@ -354,7 +356,13 @@ export default function OfficerPortal({ officer = {}, onLogout, onOpenGovernance
 
         {/* ============ TASK DETAIL DRAWER ============ */}
         {selectedIssue && (
-          <IssueDetail issue={selectedIssue} onClose={() => setSelectedIssue(null)} onAdvance={advance} />
+          <IssueDetail
+            issue={selectedIssue}
+            onClose={() => setSelectedIssue(null)}
+            onAdvance={advance}
+            officer={officer}
+            onProgressSubmitted={() => {}}
+          />
         )}
       </main>
     </div>
@@ -417,13 +425,19 @@ function IssueRow({ issue, open, delay = 0 }) {
   );
 }
 
-function IssueDetail({ issue, onClose, onAdvance }) {
+function IssueDetail({ issue, onClose, onAdvance, officer, onProgressSubmitted }) {
   const w = WORKFLOW[issue.workflow] || { label: issue.workflow, next: null, action: null };
   const sc = sevOf(issue.severity);
   const idx = WORKFLOW_STEPS.indexOf(issue.workflow);
+  const [showProofUpload, setShowProofUpload] = useState(false);
+  const [expandedTimeline, setExpandedTimeline] = useState(true);
+  const proofs = listProgressForIssue(issue.id || issue.complaint_id || '');
+
+  const needsProof = ['ACCEPTED', 'INSPECTED', 'IN_PROGRESS', 'EVIDENCE'].includes(issue.workflow);
+
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-container" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-container" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 640 }}>
         <div className="flex justify-between items-center" style={{ marginBottom: 'var(--sp-4)' }}>
           <span className="mono body-sm" style={{ color: 'var(--ink-muted)' }}>{issue.id}</span>
           <button onClick={onClose} className="btn btn-ghost btn-icon"><X size={16} /></button>
@@ -450,6 +464,7 @@ function IssueDetail({ issue, onClose, onAdvance }) {
           </div>
         )}
 
+        {/* Resolution Pipeline */}
         <div className="label-sm" style={{ marginBottom: 'var(--sp-3)' }}>Resolution pipeline</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 'var(--sp-5)' }}>
           {WORKFLOW_STEPS.map((s, i) => {
@@ -465,17 +480,108 @@ function IssueDetail({ issue, onClose, onAdvance }) {
           })}
         </div>
 
-        {w.action ? (
-          <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => onAdvance(issue.id)}>
-            <CheckCircle2 size={14} /> {w.action}
-          </button>
+        {/* REAL PROGRESS PROOF TIMELINE */}
+        {proofs.length > 0 && (
+          <div style={{ marginBottom: 'var(--sp-5)' }}>
+            <button
+              onClick={() => setExpandedTimeline(!expandedTimeline)}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: 8 }}
+            >
+              <Eye size={13} color="#818cf8" />
+              <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#818cf8' }}>
+                {expandedTimeline ? 'Hide' : 'Show'} My Progress Timeline ({proofs.length} update{proofs.length !== 1 ? 's' : ''})
+              </span>
+              <ChevronRight size={12} color="#818cf8" style={{ transform: expandedTimeline ? 'rotate(90deg)' : 'none', transition: '0.2s' }} />
+            </button>
+            {expandedTimeline && (
+              <div style={{ background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 10, padding: '12px' }}>
+                <ProofMiniTimeline proofs={proofs} />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ACTION BUTTONS */}
+        {showProofUpload ? (
+          <OfficerProgressUpload
+            issue={issue}
+            officer={officer}
+            onComplete={(entry) => {
+              setShowProofUpload(false);
+              if (onProgressSubmitted) onProgressSubmitted(entry);
+              // advance the workflow
+              if (issue.workflow !== 'RESOLVED') onAdvance(issue.id);
+            }}
+            onClose={() => setShowProofUpload(false)}
+          />
+        ) : w.action ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <button
+              className="btn btn-primary"
+              style={{ width: '100%', padding: '12px' }}
+              onClick={() => setShowProofUpload(true)}
+            >
+              <Camera size={15} /> Submit Proof — {w.action}
+            </button>
+            {needsProof && (
+              <div style={{ background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: 8, padding: '8px 12px', fontSize: '0.75rem', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <AlertTriangle size={12} />
+                {lang === 'Tamil'
+                  ? 'இந்த செயலுக்கு ஆதாரம் (புகைப்படம் + GPS + குறிப்புகள்) கட்டாயம்!'
+                  : '⚠️ Proof required (photo + GPS + notes) before advancing this step!'}
+              </div>
+            )}
+          </div>
         ) : (
           <div className="card" style={{ background: 'var(--green-50)', border: '1px solid var(--green-100)', textAlign: 'center', padding: 'var(--sp-4)' }}>
             <CheckCircle2 size={22} color="var(--green-500)" style={{ marginBottom: 6 }} />
-            <div className="bold body-sm" style={{ color: 'var(--green-600)' }}>Resolved — awaiting citizen confirmation</div>
+            <div className="bold body-sm" style={{ color: 'var(--green-600)' }}>
+              {issue.workflow === 'RESOLVED'
+                ? (lang === 'Tamil' ? 'தீர்க்கப்பட்டது ✓' : 'Resolved ✓')
+                : 'Awaiting citizen confirmation'}
+            </div>
+            <div className="body-xs" style={{ color: 'var(--ink-3)', marginTop: 4 }}>
+              {issue.workflow === 'RESOLVED'
+                ? (lang === 'Tamil' ? 'குடிமக்கள் சரிபார்ப்பைக் காத்திருக்கிறது.' : 'Waiting for citizen to verify the fix.')
+                : 'Waiting for citizen confirmation.'}
+            </div>
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function ProofMiniTimeline({ proofs }) {
+  if (!proofs.length) return null;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {proofs.map((p, i) => {
+        const colors = ['#38bdf8', '#a78bfa', '#fbbf24', '#10b981', '#f87171'];
+        const c = colors[i % colors.length];
+        return (
+          <div key={p.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: c, marginTop: 4, flexShrink: 0 }} />
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: c }}>{p.typeLabel || p.type}</span>
+                <span style={{ fontSize: '0.65rem', color: 'var(--text-dim)' }}>{new Date(p.timestamp).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
+              {p.photoUrl && (
+                <img src={p.photoUrl} alt="Proof" style={{ width: '100%', height: 60, objectFit: 'cover', borderRadius: 6, marginTop: 4, opacity: 0.85 }} />
+              )}
+              <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginTop: 2 }}>
+                {p.officerName} · {p.gpsMeters != null ? `${p.gpsMeters}m from site` : ''}
+                {p.aiCheck && (
+                  <span style={{ color: p.aiCheck.isAiGenerated ? '#f87171' : '#10b981', marginLeft: 6 }}>
+                    {p.aiCheck.isAiGenerated ? '⚠️ AI' : '✅ Real'}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
