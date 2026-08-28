@@ -32,7 +32,7 @@ export default function App() {
   const [complaints, setComplaints] = useState(INITIAL_MOCK_COMPLAINTS);
   
   // Navigation & Modal State
-  const [authStep, setAuthStep] = useState('login'); // 'splash' | 'language' | 'signup' | 'otp' | 'identity' | 'login' | 'app'
+  const [authStep, setAuthStep] = useState('splash'); // 'splash' | 'language' | 'signup' | 'otp' | 'identity' | 'login' | 'app'
   const [activeTab, setActiveTab] = useState('home');
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isQueueModalOpen, setIsQueueModalOpen] = useState(false);
@@ -120,43 +120,41 @@ export default function App() {
       <SyncStatusBanner onOpenQueue={() => setIsQueueModalOpen(true)} />
 
       {/* Main Top Government Header */}
-      <header className="app-header">
-        <div className="app-header-brand">
-          <div className="app-header-logo">
-            <Building2 size={20} color="#ffffff" />
+      <header className="cp-header">
+        <div className="cp-header-brand">
+          <div className="cp-header-logo">
+            <svg width="20" height="20" viewBox="0 0 64 64" fill="none">
+              <path d="M22 42 L22 30 L25 30 L25 26 L28 26 L28 23 L32 19 L36 23 L36 26 L39 26 L39 30 L42 30 L42 42 Z" fill="#fbd77a"/>
+              <rect x="20" y="42" width="24" height="4" fill="#fbd77a"/>
+              <rect x="18" y="46" width="28" height="2" fill="#fbd77a" opacity="0.7"/>
+            </svg>
           </div>
-          <div className="app-header-title">
-            <h1>CivicPulse</h1>
-            <p>Tamil Nadu AI Civic Redressal &amp; Satellite Map Engine</p>
+          <div className="cp-header-title">
+            <h1 style={{ fontFamily: 'var(--font-display)' }}>CivicPulse</h1>
+            <p>Government of Tamil Nadu · AI Civic Platform</p>
           </div>
         </div>
 
-        <div className="app-header-actions">
+        <div className="cp-header-actions">
           {isAuthenticated && userProfile ? (
             <>
-              <span className={`badge ${activeRole === 'CITIZEN' ? 'badge-low' : activeRole === 'OFFICER' ? 'badge-medium' : 'badge-escalated'}`}>
+              <span className={`badge ${activeRole === 'CITIZEN' ? 'badge-green' : activeRole === 'OFFICER' ? 'badge-amber' : 'badge-dark'}`}>
                 {activeRole}
               </span>
               <button
                 onClick={handleLogout}
-                className="glass-btn glass-btn-danger"
+                className="btn btn-secondary btn-sm"
                 title={`Logout ${userProfile.email ? userProfile.email.split('@')[0] : userProfile.officer_id || 'User'}`}
-                style={{ padding: '7px 12px', fontSize: '0.8rem' }}
               >
-                <LogOut size={14} />
-                <span style={{ display: 'none' }} className="logout-label">
-                  {userProfile.email ? userProfile.email.split('@')[0] : userProfile.officer_id || 'User'}
-                </span>
+                Logout {userProfile.email ? userProfile.email.split('@')[0] : userProfile.officer_id || 'User'}
               </button>
             </>
           ) : (
             <button
               onClick={() => setAuthStep('login')}
-              className="glass-btn"
-              style={{ fontSize: '0.82rem', padding: '7px 14px' }}
+              className="btn btn-primary btn-sm"
             >
-              <Lock size={14} />
-              <span>Sign Up / Log In</span>
+              Sign in
             </button>
           )}
         </div>
@@ -167,7 +165,7 @@ export default function App() {
         {!isAuthenticated || authStep !== 'app' ? (
           <>
             {authStep === 'splash' && (
-              <SplashScreen onStart={() => setAuthStep('language')} />
+              <SplashScreen onStart={() => setAuthStep('login')} />
             )}
 
             {authStep === 'language' && (
@@ -210,9 +208,40 @@ export default function App() {
 
             {authStep === 'login' && (
               <LoginScreen
-                onLoginSuccess={handleAuthSuccess}
-                onNavigateSignUp={() => setAuthStep('signup')}
-                onNavigateForgot={() => setAuthStep('recovery')}
+                onLogin={async (data) => {
+                  try {
+                    let result;
+                    if (data.role === 'citizen') {
+                      if (data.method === 'otp') {
+                        result = await apiService.citizenOtpLogin(data.email, data.otp);
+                      } else {
+                        result = await apiService.citizenLogin(data.email, data.password);
+                      }
+                    } else {
+                      result = await apiService.officerLogin(data.officer_id, data.password);
+                    }
+                    handleAuthSuccess({
+                      role: (result.role || (data.role === 'officer' ? 'OFFICER' : 'CITIZEN')).toUpperCase(),
+                      user_id: result.user_id || result.officer_id || result.id,
+                      email: data.email || result.email,
+                      officer_id: data.officer_id || result.officer_id,
+                      preferred_language: 'English'
+                    });
+                  } catch {
+                    // Offline demo mode — still let user in
+                    handleAuthSuccess({
+                      role: data.role === 'officer' ? 'OFFICER' : 'CITIZEN',
+                      user_id: data.role === 'officer' ? data.officer_id : data.email,
+                      email: data.email || `${data.officer_id}@gov.in`,
+                      officer_id: data.officer_id,
+                      preferred_language: 'English',
+                      name: data.role === 'officer' ? 'Ramesh Kumar' : undefined,
+                      department: data.role === 'officer' ? 'Roads & Infrastructure' : undefined,
+                      district: data.role === 'officer' ? 'Coimbatore' : undefined,
+                    });
+                  }
+                }}
+                onBack={() => setAuthStep('splash')}
               />
             )}
 
@@ -275,6 +304,13 @@ export default function App() {
                 lang={lang}
                 complaints={complaints}
                 setComplaints={setComplaints}
+                officer={{
+                  name: userProfile.officer_id ? `Officer ${userProfile.officer_id}` : (userProfile.email?.split('@')[0] || 'Officer'),
+                  district: 'Coimbatore',
+                  department: 'General',
+                }}
+                onLogout={handleLogout}
+                onOpenProfile={() => {}}
               />
             )}
 
