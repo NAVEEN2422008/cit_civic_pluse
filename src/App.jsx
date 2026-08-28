@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Building2, Globe, Shield, UserCheck, LayoutDashboard, Sparkles, Lock, User, PlayCircle, LogOut, Compass } from 'lucide-react';
+import { User, LogOut } from 'lucide-react';
 import SplashScreen from './components/auth/SplashScreen';
 import LanguageSelectScreen from './components/auth/LanguageSelectScreen';
 import SignUpScreen from './components/auth/SignUpScreen';
@@ -12,13 +12,12 @@ import CitizenProfileScreen from './components/auth/CitizenProfileScreen';
 import HomeScreen from './components/citizen/HomeScreen';
 import CitizenPortal from './components/CitizenPortal';
 import CivicHeatmapView from './components/citizen/CivicHeatmapView';
+import Civic3DHeatmapView from './components/citizen/Civic3DHeatmapView';
 import NavigationBar from './components/navigation/NavigationBar';
 import NotificationDrawer from './components/citizen/NotificationDrawer';
 import SyncStatusBanner from './components/citizen/SyncStatusBanner';
 import OfflineQueueModal from './components/citizen/OfflineQueueModal';
-import TranscriptReviewModal from './components/citizen/TranscriptReviewModal';
 import ComplaintTimelineModal from './components/citizen/ComplaintTimelineModal';
-import ResolutionVerificationModal from './components/citizen/ResolutionVerificationModal';
 import ReportIssueContainer from './components/intake/ReportIssueContainer';
 
 import OfficerPortal from './components/OfficerPortal';
@@ -44,6 +43,8 @@ export default function App() {
   const [registrationData, setRegistrationData] = useState({ email: '', password: '', demoOtp: '' });
   const [userProfile, setUserProfile] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [govOpen, setGovOpen] = useState(false); // collector/admin governance portal toggle
+  const [map3D, setMap3D] = useState(false); // 2D vs 3D heatmap toggle
 
   // Check existing session token on mount
   useEffect(() => {
@@ -69,12 +70,18 @@ export default function App() {
     setIsAuthenticated(true);
     const role = tokenData.role || 'CITIZEN';
     setActiveRole(role);
+    setGovOpen(false);
     setUserProfile({
       civic_user_id: tokenData.user_id,
       role: role,
       preferred_language: tokenData.preferred_language || 'English',
       email: tokenData.email || (role === 'OFFICER' ? 'officer@gov.in' : 'citizen@example.com'),
-      officer_id: tokenData.officer_id || null
+      officer_id: tokenData.officer_id || null,
+      name: tokenData.name,
+      department: tokenData.department,
+      district: tokenData.district,
+      zone: tokenData.zone,
+      tier: tokenData.tier,
     });
     setAuthStep('app');
     setActiveTab('home');
@@ -87,10 +94,27 @@ export default function App() {
     setAuthStep('login');
     setActiveRole('CITIZEN');
     setActiveTab('home');
+    setGovOpen(false);
   };
 
   const handleNewComplaintCreated = (newIssue) => {
-    setComplaints(prev => [newIssue, ...prev]);
+    // Tag the new issue with the current citizen's identity so it shows up
+    // in their "My Filed Complaints" hub.
+    const tagged = {
+      ...newIssue,
+      reporter_id: userProfile?.civic_user_id || userProfile?.user_id || null,
+      civic_user_id: userProfile?.civic_user_id || userProfile?.user_id || null,
+      reporterEmail: userProfile?.email || null,
+      reporter_email: userProfile?.email || null,
+      reportedBy: userProfile?.email || userProfile?.civic_user_id || 'citizen',
+      // Synthesise display fields the hub list expects
+      titleEn: newIssue.processed_description || newIssue.titleEn || newIssue.description || 'New civic issue',
+      processed_description: newIssue.processed_description || newIssue.description || 'New civic issue',
+      categoryEn: newIssue.categoryEn || newIssue.category || 'General Civic Issue',
+      status: newIssue.status || 'OPEN',
+      createdAt: newIssue.created_at || new Date().toISOString(),
+    };
+    setComplaints(prev => [tagged, ...prev]);
     setActiveTab('hub');
   };
 
@@ -110,7 +134,9 @@ export default function App() {
     reports_count: c.reporterCount || c.reports_count || 1,
     created_at: c.createdAt || c.created_at || new Date().toISOString(),
     priority: c.priority || 'MEDIUM',
-    photo_url: c.photoUrl || c.media_url
+    photo_url: c.photoUrl || c.media_url,
+    lat: c.lat ?? c.latitude ?? null,
+    lon: c.lon ?? c.longitude ?? null
   }));
 
   return (
@@ -226,8 +252,7 @@ export default function App() {
                       email: data.email || result.email,
                       officer_id: data.officer_id || result.officer_id,
                       preferred_language: 'English'
-                    });
-                  } catch {
+                    });                  } catch {
                     // Offline demo mode — still let user in
                     handleAuthSuccess({
                       role: data.role === 'officer' ? 'OFFICER' : 'CITIZEN',
@@ -238,10 +263,14 @@ export default function App() {
                       name: data.role === 'officer' ? 'Ramesh Kumar' : undefined,
                       department: data.role === 'officer' ? 'Roads & Infrastructure' : undefined,
                       district: data.role === 'officer' ? 'Coimbatore' : undefined,
+                      zone: data.role === 'officer' ? 'Zone 5' : undefined,
+                      tier: data.role === 'officer' ? 'ward' : undefined,
                     });
                   }
                 }}
                 onBack={() => setAuthStep('splash')}
+                onCreateAccount={() => setAuthStep('language')}
+                onForgotPassword={() => setAuthStep('recovery')}
               />
             )}
 
@@ -283,10 +312,23 @@ export default function App() {
                 )}
 
                 {activeTab === 'map' && (
-                  <CivicHeatmapView
-                    publicIssues={formattedPublicIssues}
-                    onViewDetails={handleOpenIssueDetail}
-                  />
+                  <>
+                    <div className="flex justify-between items-center" style={{ maxWidth: 1280, margin: '0 auto 12px', padding: '0 4px' }}>
+                      <div className="section-label">Live civic map</div>
+                      <div className="tabs" style={{ width: 'auto' }}>
+                        <button type="button" onClick={() => setMap3D(false)} className={`tab ${!map3D ? 'active' : ''}`}>2D Heatmap</button>
+                        <button type="button" onClick={() => setMap3D(true)} className={`tab ${map3D ? 'active' : ''}`}>3D View</button>
+                      </div>
+                    </div>
+                    {map3D ? (
+                      <Civic3DHeatmapView clusters={formattedPublicIssues} />
+                    ) : (
+                      <CivicHeatmapView
+                        publicIssues={formattedPublicIssues}
+                        onViewDetails={handleOpenIssueDetail}
+                      />
+                    )}
+                  </>
                 )}
 
                 {activeTab === 'profile' && (
@@ -299,23 +341,30 @@ export default function App() {
               </>
             )}
 
-            {(activeRole === 'OFFICER' || activeRole === 'SUPERVISOR') && (
+            {(activeRole === 'OFFICER' || activeRole === 'SUPERVISOR' || activeRole === 'ADMIN') && (
               <OfficerPortal
                 lang={lang}
                 complaints={complaints}
                 setComplaints={setComplaints}
                 officer={{
-                  name: userProfile.officer_id ? `Officer ${userProfile.officer_id}` : (userProfile.email?.split('@')[0] || 'Officer'),
-                  district: 'Coimbatore',
-                  department: 'General',
+                  name: userProfile?.name || (userProfile?.officer_id ? `Officer ${userProfile.officer_id}` : (userProfile?.email?.split('@')[0] || 'Officer')),
+                  officer_id: userProfile?.officer_id,
+                  district: userProfile?.district || 'Coimbatore',
+                  department: userProfile?.department || 'General',
+                  zone: userProfile?.zone || 'Zone 5',
+                  tier: userProfile?.tier || 'ward',
                 }}
                 onLogout={handleLogout}
                 onOpenProfile={() => {}}
+                onOpenGovernance={() => setGovOpen(true)}
               />
             )}
 
-            {activeRole === 'ADMIN' && (
-              <AdminDashboard complaints={complaints} lang={lang} />
+            {activeRole === 'ADMIN' && govOpen && (
+              <AdminDashboard complaints={complaints} lang={lang} onBack={() => setGovOpen(false)} />
+            )}
+            {(activeRole === 'SUPERVISOR' || userProfile?.tier === 'collector') && govOpen && (
+              <AdminDashboard complaints={complaints} lang={lang} onBack={() => setGovOpen(false)} scope="collector" />
             )}
           </>
         )}

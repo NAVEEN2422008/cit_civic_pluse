@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { 
   Shield, Layers, Flame, AlertCircle, TrendingUp, CheckCircle, MapPin, 
-  Clock, DollarSign, Activity, Zap, Users, BarChart3, ArrowUpRight, Award, AlertTriangle, CheckSquare
+  Clock, DollarSign, Activity, Zap, Users, BarChart3, ArrowUpRight, Award, AlertTriangle, CheckSquare, ArrowLeft
 } from 'lucide-react';
 import { TN_DEPARTMENTS, ESCALATION_LEVELS } from '../mockData';
 import CivicHeatmapView from './citizen/CivicHeatmapView';
 import { apiService } from '../utils/apiService';
 
-export default function AdminDashboard({ lang = 'en', complaints = [] }) {
+export default function AdminDashboard({ lang = 'en', complaints = [], onBack, scope = 'state' }) {
   const [selectedDept, setSelectedDept] = useState('ALL');
   const [isDemoSlaMode, setIsDemoSlaMode] = useState(true);
   const [selectedEscalationLevel, setSelectedEscalationLevel] = useState('ALL');
@@ -42,7 +42,18 @@ export default function AdminDashboard({ lang = 'en', complaints = [] }) {
 
   return (
     <div style={{ maxWidth: '1280px', margin: '0 auto', paddingBottom: '40px' }}>
-      
+
+      {onBack && (
+        <button onClick={onBack} style={{
+          display: 'inline-flex', alignItems: 'center', gap: '8px',
+          cursor: 'pointer', border: 'none', background: 'transparent',
+          color: 'var(--ink-2)', fontWeight: 700, fontSize: '0.9rem',
+          padding: '8px 0', marginBottom: '12px',
+        }}>
+          <ArrowLeft size={15} /> Back to my field workspace
+        </button>
+      )}
+
       {/* EXECUTIVE HEADER */}
       <div className="glass-panel" style={{ padding: '20px 24px', marginBottom: '24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>

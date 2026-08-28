@@ -40,6 +40,29 @@ export default function CivicHeatmapView({ publicIssues = [], onViewDetails }) {
   const zoneGroupRef = useRef(null);
 
   const fetchHeatmapData = async () => {
+    // Prefer locally provided issues (incl. newly filed complaints) so they
+    // actually surface on the map, then derive intensity from priority.
+    if (publicIssues && publicIssues.length) {
+      const derived = publicIssues.map((p, idx) => {
+        const prio = (p.priority || '').toUpperCase();
+        const intensity = prio === 'HIGH' || prio === 'CRITICAL' ? 0.9
+          : prio === 'MEDIUM' ? 0.65 : 0.4;
+        return {
+          latitude: p.lat ?? p.latitude ?? (100 + idx * 0.001),
+          longitude: p.lon ?? p.longitude,
+          intensity,
+          category: (p.category || 'GENERAL').toUpperCase(),
+          location_ward: p.ward || p.location_ward || 'Citizen report',
+          reports_count: p.reports_count || p.supporters_count || 1,
+          status: p.status || 'OPEN',
+        };
+      }).filter(p => p.longitude != null);
+      if (derived.length) {
+        setClusters(derived);
+        updateStats(derived);
+        return;
+      }
+    }
     try {
       const data = await apiService.getHeatmapClusters();
       setClusters(data);
@@ -165,8 +188,11 @@ export default function CivicHeatmapView({ publicIssues = [], onViewDetails }) {
         color: sev.glow,
         fillColor: sev.color,
         fillOpacity: 0.22,
-        weight: 2.5
-      }).addTo(zoneGroupRef.current);
+        weight: 2.5,
+        interactive: true
+      }).addTo(zoneGroupRef.current).on('click', () => {
+        if (onViewDetails) onViewDetails(c);
+      });
 
       // Hotspot center pin
       const pinIcon = L.divIcon({
@@ -212,7 +238,11 @@ export default function CivicHeatmapView({ publicIssues = [], onViewDetails }) {
         iconAnchor: [14, 14]
       });
 
-      L.marker([lat, lon], { icon: pinIcon, interactive: false }).addTo(zoneGroupRef.current);
+      L.marker([lat, lon], { icon: pinIcon, interactive: true, keyboard: true, title: c.title_en || c.category || 'Issue' })
+        .addTo(zoneGroupRef.current)
+        .on('click', () => {
+          if (onViewDetails) onViewDetails(c);
+        });
 
       // Report count badge (visible at higher zoom)
       if (currentZoomLevel >= 10) {

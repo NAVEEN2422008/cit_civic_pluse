@@ -37,7 +37,7 @@ const KolamSVG = ({ size = 200, opacity = 0.08 }) => (
   </svg>
 );
 
-export default function LoginScreen({ onLogin, onBack }) {
+export default function LoginScreen({ onLogin, onBack, onCreateAccount, onForgotPassword }) {
   const [role, setRole] = useState('citizen');
   const [authMode, setAuthMode] = useState('otp');
   const [email, setEmail] = useState('naveen.citizen@test.in');
@@ -267,6 +267,11 @@ export default function LoginScreen({ onLogin, onBack }) {
                       {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
+                  <div style={{ textAlign: 'right', marginTop: '6px' }}>
+                    <a onClick={onForgotPassword} style={{ color: 'var(--ink-muted)', fontWeight: 500, cursor: 'pointer' }}>
+                      Forgot password?
+                    </a>
+                  </div>
                 </div>
               )}
 
@@ -282,7 +287,7 @@ export default function LoginScreen({ onLogin, onBack }) {
 
               <div className="body-xs" style={{ textAlign: 'center', color: 'var(--ink-muted)', marginTop: 'var(--sp-4)' }}>
                 New to CivicPulse?{' '}
-                <a style={{ color: 'var(--green-500)', fontWeight: 600 }}>Create an account</a>
+                <a onClick={onCreateAccount} style={{ color: 'var(--green-500)', fontWeight: 600, cursor: 'pointer' }}>Create an account</a>
               </div>
             </form>
           ) : (

@@ -81,7 +81,7 @@ export default function ReviewSubmitStep({
           </div>
 
           {hasVoice ? (
-            <audio src={voiceData.audioUrl} controls style={{ width: '100%', height: '32px' }} />
+            <audio src={voiceData.url || voiceData.audioUrl} controls style={{ width: '100%', height: '32px' }} />
           ) : (
             <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)', fontStyle: 'italic' }}>No voice note recorded</span>
           )}

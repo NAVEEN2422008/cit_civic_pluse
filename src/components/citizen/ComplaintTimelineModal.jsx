@@ -1,5 +1,6 @@
 import React from 'react';
 import { CheckCircle2, Clock, MapPin, Building, ShieldCheck, AlertCircle, X } from 'lucide-react';
+import ResponsiblePersonPanel from './ResponsiblePersonPanel';
 
 export default function ComplaintTimelineModal({ issueDetail, isOpen, onClose }) {
   if (!isOpen || !issueDetail) return null;
@@ -49,6 +50,15 @@ export default function ComplaintTimelineModal({ issueDetail, isOpen, onClose })
         <div style={{ display: 'flex', gap: '16px', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '20px', padding: '10px 14px', background: 'rgba(15, 23, 42, 0.6)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
           <div>📍 <strong>Location:</strong> {issueDetail.location_ward}</div>
           <div>⏱️ <strong>SLA Remaining:</strong> <span style={{ color: '#6ee7b7', fontWeight: 700 }}>{issueDetail.sla_days_remaining || 3} Days</span></div>
+        </div>
+
+        {/* Who handles this — smart routing result */}
+        <div style={{ marginBottom: '20px' }}>
+          <ResponsiblePersonPanel
+            category={issueDetail.category || issueDetail.categoryEn}
+            ward={issueDetail.location_ward || issueDetail.ward}
+            district={issueDetail.district}
+          />
         </div>
 
         {/* 9-Step Vertical Timeline Visualizer */}
