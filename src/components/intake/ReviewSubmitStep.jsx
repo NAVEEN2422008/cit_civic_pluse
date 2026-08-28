@@ -75,6 +75,18 @@ export default function ReviewSubmitStep({
               {language === 'Tamil' ? 'உரை விவரம் இல்லை' : 'No text description provided'}
             </span>
           )}
+
+          {/* DOWNSIDE: English Translation Preview */}
+          {hasText && language !== 'English' && voiceData?.translated && (
+            <div style={{ marginTop: '10px', padding: '8px 12px', background: 'rgba(12, 74, 62, 0.15)', border: '1px solid rgba(46, 158, 122, 0.3)', borderRadius: '8px' }}>
+              <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#2e9e7a', textTransform: 'uppercase', marginBottom: '2px' }}>
+                🌐 English Translation (for Officer Routing):
+              </div>
+              <div style={{ fontSize: '0.82rem', color: '#e6f0ed', fontStyle: 'italic' }}>
+                "{voiceData.translated}"
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Voice Note Preview */}
@@ -83,13 +95,30 @@ export default function ReviewSubmitStep({
             <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Mic size={16} /> {language === 'Tamil' ? 'குரல் பதிவு:' : 'Voice Recording:'}
             </span>
-            <button type="button" onClick={() => onEditStep(3)} style={{ background: 'none', border: 'none', color: '#0ea5e9', fontSize: '0.75rem', cursor: 'pointer' }}>
+            <button type="button" onClick={() => onEditStep(2)} style={{ background: 'none', border: 'none', color: '#0ea5e9', fontSize: '0.75rem', cursor: 'pointer' }}>
               <Edit3 size={13} /> {language === 'Tamil' ? 'திருத்து' : 'Edit'}
             </button>
           </div>
 
           {hasVoice ? (
-            <audio src={voiceData.url || voiceData.audioUrl} controls style={{ width: '100%', height: '32px' }} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <audio src={voiceData.url || voiceData.audioUrl} controls style={{ width: '100%', height: '32px' }} />
+              {voiceData.transcript && (
+                <div style={{ fontSize: '0.8rem', color: '#f8fafc', background: 'rgba(0,0,0,0.3)', padding: '6px 10px', borderRadius: '6px' }}>
+                  🎙️ {voiceData.transcript}
+                </div>
+              )}
+              {voiceData.translated && language !== 'English' && (
+                <div style={{ padding: '8px 12px', background: 'rgba(12, 74, 62, 0.15)', border: '1px solid rgba(46, 158, 122, 0.3)', borderRadius: '8px' }}>
+                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#2e9e7a', textTransform: 'uppercase', marginBottom: '2px' }}>
+                    🌐 English Translation (for Officer Routing):
+                  </div>
+                  <div style={{ fontSize: '0.82rem', color: '#e6f0ed', fontStyle: 'italic' }}>
+                    "{voiceData.translated}"
+                  </div>
+                </div>
+              )}
+            </div>
           ) : (
             <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)', fontStyle: 'italic' }}>
               {language === 'Tamil' ? 'குரல் பதிவு இல்லை' : 'No voice note recorded'}
