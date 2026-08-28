@@ -713,48 +713,70 @@ function OfficerWardMap({ issues = [], officer = {} }) {
       await import('leaflet/dist/leaflet.css');
       if (cancelled || !mapRef.current) return;
 
-      // Tamil Nadu default centre
+      // Strict Tamil Nadu Geographic Bounding Box
+      const TN_BOUNDS = [
+        [8.08, 76.22],  // South-West (Kanyakumari / Kerala border)
+        [13.55, 80.35]  // North-East (Tiruvallur / Chennai border)
+      ];
+
+      // Tamil Nadu default centre, locked to state
       const map = L.map(mapRef.current, {
         center: [11.1271, 78.6569],
         zoom: 7,
+        minZoom: 6,
+        maxZoom: 18,
+        maxBounds: TN_BOUNDS,
+        maxBoundsViscosity: 1.0,
         zoomControl: false,
       });
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors',
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
         maxZoom: 19,
       }).addTo(map);
 
       L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-      // If officer has a district, fly there
-      if (officer.district) {
-        const districtCoords = {
-          'Coimbatore': [11.0168, 76.9558],
-          'Chennai': [13.0827, 80.2707],
-          'Madurai': [9.9252, 78.1198],
-          'Salem': [11.6643, 78.1460],
-          'Tiruchirappalli': [10.7905, 78.7047],
-          'Trichy': [10.7905, 78.7047],
-        };
-        const coords = districtCoords[officer.district] || [11.1271, 78.6569];
-        map.flyTo(coords, 10, { duration: 1.2 });
-      }
+      // Focus map exclusively to officer's assigned jurisdiction
+      const districtCoords = {
+        'Coimbatore': [11.0168, 76.9558],
+        'Chennai': [13.0827, 80.2707],
+        'Madurai': [9.9252, 78.1198],
+        'Salem': [11.6643, 78.1460],
+        'Tiruchirappalli': [10.7905, 78.7047],
+        'Trichy': [10.7905, 78.7047],
+        'Tirunelveli': [8.7139, 77.7567]
+      };
+      
+      const targetCoord = districtCoords[officer.district] || [11.1271, 78.6569];
+      const targetZoom = officer.tier === 'ward' ? 14 : officer.tier === 'zonal' ? 12 : 9;
+      map.flyTo(targetCoord, targetZoom, { duration: 1.2 });
 
       leafletRef.current = { map, L, markers: L.layerGroup().addTo(map) };
       setReady(true);
     };
     init();
     return () => { cancelled = true; };
-  }, []);
+  }, [officer.district, officer.tier]);
 
-  // Render markers when issues change
+  // Render markers strictly filtered to the officer's jurisdiction
   useEffect(() => {
     if (!ready || !leafletRef.current) return;
     const { map, L, markers } = leafletRef.current;
     markers.clearLayers();
 
+    const isWardOfficer = officer.tier === 'ward';
+    const isZonalOfficer = officer.tier === 'zonal';
+
     const filtered = issues.filter(i => {
+      // 1. Role-based territorial scoping:
+      if (isWardOfficer && officer.ward && i.ward && !i.ward.toLowerCase().includes(officer.ward.toLowerCase())) {
+        return false;
+      }
+      if ((isWardOfficer || isZonalOfficer) && officer.district && i.location && !i.location.toLowerCase().includes(officer.district.toLowerCase())) {
+        return false;
+      }
+
       const lat = i.lat ?? i.latitude;
       const lon = i.lon ?? i.longitude;
       if (lat == null || lon == null) return false;
@@ -785,7 +807,7 @@ function OfficerWardMap({ issues = [], officer = {} }) {
         .addTo(markers)
         .on('click', () => setSelected(issue));
     });
-  }, [ready, issues, catFilter, statusFilter]);
+  }, [ready, issues, catFilter, statusFilter, officer]);
 
   const categories = ['ALL', ...new Set(issues.map(i => i.category).filter(Boolean))];
   const statuses = ['ALL', 'NEW', 'ACCEPTED', 'IN_PROGRESS', 'RESOLVED'];

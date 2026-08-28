@@ -55,8 +55,66 @@ const PRIORITY_MAP = { CRITICAL: 0.95, HIGH: 0.88, MEDIUM: 0.65, LOW: 0.35 };
 const normalizeStatus = (s) => (s || 'OPEN').toUpperCase().replace(/\s+/g, '_');
 const NORMALIZED_STATUS = { OPEN: 'OPEN', IN_PROGRESS: 'IN_PROGRESS', RESOLVED: 'RESOLVED', PENDING_CONFIRMATION: 'PENDING_CONFIRMATION' };
 
-export default function CivicHeatmapView({ publicIssues = [], onViewDetails }) {
+// Strict Tamil Nadu Geographic Bounding Box
+const TN_BOUNDS = [
+  [8.08, 76.22],  // South-West (Kanyakumari / Kerala border)
+  [13.55, 80.35]  // North-East (Tiruvallur / Chennai border)
+];
+
+const TN_DISTRICTS = {
+  'ALL': { name: 'All Tamil Nadu', coords: [11.1271, 78.6569], zoom: 7 },
+  'Chennai': {
+    name: 'Chennai Corporation', coords: [13.0827, 80.2707], zoom: 12,
+    wards: [
+      { id: 'Ward 104', name: 'Ward 104 - Anna Nagar', coords: [13.0850, 80.2100], zoom: 15 },
+      { id: 'Ward 112', name: 'Ward 112 - T. Nagar', coords: [13.0418, 80.2341], zoom: 15 },
+      { id: 'Ward 170', name: 'Ward 170 - Velachery', coords: [12.9815, 80.2180], zoom: 15 },
+      { id: 'Ward 175', name: 'Ward 175 - Adyar', coords: [13.0067, 80.2570], zoom: 15 },
+      { id: 'Ward 54', name: 'Ward 54 - Royapuram', coords: [13.1130, 80.2940], zoom: 15 }
+    ]
+  },
+  'Coimbatore': {
+    name: 'Coimbatore Corporation', coords: [11.0168, 76.9558], zoom: 12,
+    wards: [
+      { id: 'Ward 14', name: 'Ward 14 - Gandhipuram', coords: [11.0180, 76.9650], zoom: 15 },
+      { id: 'Ward 22', name: 'Ward 22 - RS Puram', coords: [11.0080, 76.9450], zoom: 15 },
+      { id: 'Ward 64', name: 'Ward 64 - Peelamedu', coords: [11.0250, 77.0100], zoom: 15 }
+    ]
+  },
+  'Madurai': {
+    name: 'Madurai Corporation', coords: [9.9252, 78.1198], zoom: 12,
+    wards: [
+      { id: 'Ward 12', name: 'Ward 12 - Goripalayam', coords: [9.9320, 78.1280], zoom: 15 },
+      { id: 'Ward 45', name: 'Ward 45 - K.K. Nagar', coords: [9.9210, 78.1450], zoom: 15 },
+      { id: 'Ward 80', name: 'Ward 80 - Meenakshi Temple', coords: [9.9195, 78.1193], zoom: 15 }
+    ]
+  },
+  'Salem': {
+    name: 'Salem Corporation', coords: [11.6643, 78.1460], zoom: 12,
+    wards: [
+      { id: 'Ward 24', name: 'Ward 24 - Junction Zone', coords: [11.6680, 78.1320], zoom: 15 },
+      { id: 'Ward 33', name: 'Ward 33 - Hasthampatti', coords: [11.6780, 78.1580], zoom: 15 }
+    ]
+  },
+  'Tiruchirappalli': {
+    name: 'Tiruchirappalli Corporation', coords: [10.7905, 78.7047], zoom: 12,
+    wards: [
+      { id: 'Ward 9', name: 'Ward 9 - Thillai Nagar', coords: [10.8250, 78.6850], zoom: 15 },
+      { id: 'Ward 28', name: 'Ward 28 - Srirangam', coords: [10.8620, 78.6920], zoom: 15 }
+    ]
+  },
+  'Tirunelveli': {
+    name: 'Tirunelveli Corporation', coords: [8.7139, 77.7567], zoom: 12,
+    wards: [
+      { id: 'Ward 18', name: 'Ward 18 - Palayamkottai', coords: [8.7180, 77.7320], zoom: 15 }
+    ]
+  }
+};
+
+export default function CivicHeatmapView({ publicIssues = [], onViewDetails, officerScope = null }) {
   const [clusters, setClusters] = useState([]);
+  const [selectedDistrict, setSelectedDistrict] = useState(officerScope?.district || 'ALL');
+  const [selectedWard, setSelectedWard] = useState(officerScope?.ward || 'ALL');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [mapTileLayer, setMapTileLayer] = useState('DARK');
@@ -68,6 +126,7 @@ export default function CivicHeatmapView({ publicIssues = [], onViewDetails }) {
   const leafletMapRef = useRef(null);
   const markersGroupRef = useRef(null);
   const zoneGroupRef = useRef(null);
+  const districtBoundaryGroupRef = useRef(null);
 
   const buildClusters = (items) => {
     if (!items || !items.length) return [];
@@ -77,7 +136,6 @@ export default function CivicHeatmapView({ publicIssues = [], onViewDetails }) {
         const lon = p.lon ?? p.longitude;
         if (lat == null || lon == null) return null;
         const normPrio = (p.priority || '').toUpperCase();
-        // Compute intensity from explicit field first, then priority, then default
         let intensity;
         if (typeof p.intensity === 'number') intensity = p.intensity;
         else if (PRIORITY_MAP[normPrio] != null) intensity = PRIORITY_MAP[normPrio];
@@ -92,7 +150,7 @@ export default function CivicHeatmapView({ publicIssues = [], onViewDetails }) {
           location_ward: p.ward || p.location_ward || 'Citizen report',
           reports_count: p.reports_count || p.supporters_count || p.reporterCount || 1,
           status: normalizeStatus(p.status),
-          // Preserve original for detail modal
+          district: p.district || (p.location_ward?.includes('Chennai') ? 'Chennai' : p.location_ward?.includes('Coimbatore') ? 'Coimbatore' : p.location_ward?.includes('Madurai') ? 'Madurai' : 'Tamil Nadu'),
           _original: p,
         };
       })
@@ -119,7 +177,7 @@ export default function CivicHeatmapView({ publicIssues = [], onViewDetails }) {
       updateStats(fromProps);
       return;
     }
-    // Fallback to API
+    // Fallback to API / Default Seeds strictly inside Tamil Nadu
     apiService.getHeatmapClusters()
       .then(data => {
         if (data && data.length) {
@@ -129,29 +187,37 @@ export default function CivicHeatmapView({ publicIssues = [], onViewDetails }) {
       })
       .catch(() => {
         const fallback = [
-          { latitude: 13.0827, longitude: 80.2707, intensity: 0.95, category: "ROADS", location_ward: "Ward 104, Anna Nagar, Chennai", reports_count: 28, status: "OPEN" },
-          { latitude: 13.0850, longitude: 80.2680, intensity: 0.88, category: "ROADS", location_ward: "Ward 104 North, Anna Nagar", reports_count: 18, status: "OPEN" },
-          { latitude: 13.0418, longitude: 80.2341, intensity: 0.92, category: "GARBAGE", location_ward: "Ward 112, T. Nagar, Chennai", reports_count: 32, status: "IN_PROGRESS" },
-          { latitude: 12.9815, longitude: 80.2180, intensity: 0.70, category: "STREETLIGHTS", location_ward: "Ward 170, Velachery, Chennai", reports_count: 14, status: "OPEN" },
-          { latitude: 13.0067, longitude: 80.2570, intensity: 0.85, category: "DRAINAGE", location_ward: "Ward 175, Adyar, Chennai", reports_count: 22, status: "IN_PROGRESS" },
-          { latitude: 9.9252, longitude: 78.1198, intensity: 0.89, category: "ROADS", location_ward: "Ward 45, K.K. Nagar, Madurai", reports_count: 24, status: "OPEN" },
-          { latitude: 11.0168, longitude: 76.9558, intensity: 0.94, category: "GARBAGE", location_ward: "Ward 14, Gandhipuram, Coimbatore", reports_count: 30, status: "OPEN" },
-          { latitude: 10.7905, longitude: 78.7047, intensity: 0.65, category: "WATER", location_ward: "Thillai Nagar, Tiruchirappalli", reports_count: 12, status: "RESOLVED" },
-          { latitude: 11.6643, longitude: 78.1460, intensity: 0.78, category: "ROADS", location_ward: "Junction Zone, Salem", reports_count: 19, status: "OPEN" }
+          { latitude: 13.0827, longitude: 80.2707, intensity: 0.95, category: "ROADS", location_ward: "Ward 104, Anna Nagar, Chennai", district: "Chennai", reports_count: 28, status: "OPEN" },
+          { latitude: 13.0850, longitude: 80.2680, intensity: 0.88, category: "ROADS", location_ward: "Ward 104 North, Anna Nagar", district: "Chennai", reports_count: 18, status: "OPEN" },
+          { latitude: 13.0418, longitude: 80.2341, intensity: 0.92, category: "GARBAGE", location_ward: "Ward 112, T. Nagar, Chennai", district: "Chennai", reports_count: 32, status: "IN_PROGRESS" },
+          { latitude: 12.9815, longitude: 80.2180, intensity: 0.70, category: "STREETLIGHTS", location_ward: "Ward 170, Velachery, Chennai", district: "Chennai", reports_count: 14, status: "OPEN" },
+          { latitude: 13.0067, longitude: 80.2570, intensity: 0.85, category: "DRAINAGE", location_ward: "Ward 175, Adyar, Chennai", district: "Chennai", reports_count: 22, status: "IN_PROGRESS" },
+          { latitude: 9.9252, longitude: 78.1198, intensity: 0.89, category: "ROADS", location_ward: "Ward 45, K.K. Nagar, Madurai", district: "Madurai", reports_count: 24, status: "OPEN" },
+          { latitude: 9.9320, longitude: 78.1280, intensity: 0.75, category: "WATER", location_ward: "Ward 12, Goripalayam, Madurai", district: "Madurai", reports_count: 15, status: "OPEN" },
+          { latitude: 11.0168, longitude: 76.9558, intensity: 0.94, category: "GARBAGE", location_ward: "Ward 14, Gandhipuram, Coimbatore", district: "Coimbatore", reports_count: 30, status: "OPEN" },
+          { latitude: 11.0080, longitude: 76.9450, intensity: 0.82, category: "ROADS", location_ward: "Ward 22, RS Puram, Coimbatore", district: "Coimbatore", reports_count: 21, status: "IN_PROGRESS" },
+          { latitude: 10.7905, longitude: 78.7047, intensity: 0.65, category: "WATER", location_ward: "Ward 9, Thillai Nagar, Tiruchirappalli", district: "Tiruchirappalli", reports_count: 12, status: "RESOLVED" },
+          { latitude: 11.6643, longitude: 78.1460, intensity: 0.78, category: "ROADS", location_ward: "Ward 24, Junction Zone, Salem", district: "Salem", reports_count: 19, status: "OPEN" },
+          { latitude: 8.7139, longitude: 77.7567, intensity: 0.72, category: "DRAINAGE", location_ward: "Ward 18, Palayamkottai, Tirunelveli", district: "Tirunelveli", reports_count: 11, status: "OPEN" }
         ];
         setClusters(fallback);
         updateStats(fallback);
       });
   }, [publicIssues]);
 
-  useEffect(() => { if (mapReady) renderHotspots(); }, [clusters, categoryFilter, statusFilter, mapReady]);
+  useEffect(() => { if (mapReady) renderHotspots(); }, [clusters, categoryFilter, statusFilter, selectedDistrict, selectedWard, mapReady]);
 
+  // Lock map to Tamil Nadu Only
   useEffect(() => {
     if (!mapContainerRef.current || leafletMapRef.current) return;
 
     const map = L.map(mapContainerRef.current, {
       center: [11.1271, 78.6569],
       zoom: 7,
+      minZoom: 6,
+      maxZoom: 18,
+      maxBounds: TN_BOUNDS,
+      maxBoundsViscosity: 1.0, // Strict bounce-back to Tamil Nadu
       zoomControl: false,
       attributionControl: false
     });
@@ -160,6 +226,7 @@ export default function CivicHeatmapView({ publicIssues = [], onViewDetails }) {
     leafletMapRef.current = map;
     markersGroupRef.current = L.layerGroup().addTo(map);
     zoneGroupRef.current = L.layerGroup().addTo(map);
+    districtBoundaryGroupRef.current = L.layerGroup().addTo(map);
 
     map.on('zoomend', () => setCurrentZoomLevel(map.getZoom()));
     setTimeout(() => { map.invalidateSize(); setMapReady(true); }, 400);
@@ -383,6 +450,72 @@ export default function CivicHeatmapView({ publicIssues = [], onViewDetails }) {
             <Compass size={15} /> My Location
           </button>
         </div>
+      </div>
+
+      {/* DISTRICT & WARD DEEP-DIVE SELECTION BAR (ECharts-style Geo-Choropleth Drilldown) */}
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap', background: 'rgba(15, 23, 42, 0.7)', padding: '12px 16px', borderRadius: '12px', border: '1px solid rgba(56, 189, 248, 0.2)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>🏛️ District (மாவட்டம்)</span>
+          <select
+            value={selectedDistrict}
+            disabled={!!officerScope?.district}
+            onChange={e => {
+              const distKey = e.target.value;
+              setSelectedDistrict(distKey);
+              setSelectedWard('ALL');
+              const dist = TN_DISTRICTS[distKey];
+              if (dist && leafletMapRef.current) {
+                leafletMapRef.current.flyTo(dist.coords, dist.zoom, { duration: 1.2 });
+              }
+            }}
+            style={{
+              background: '#0c1222', border: '1px solid rgba(56, 189, 248, 0.4)', borderRadius: '7px',
+              color: '#38bdf8', padding: '7px 14px', fontSize: '0.82rem', cursor: 'pointer', fontWeight: 700
+            }}
+          >
+            {Object.entries(TN_DISTRICTS).map(([key, d]) => (
+              <option key={key} value={key}>{d.name}</option>
+            ))}
+          </select>
+        </div>
+
+        {selectedDistrict !== 'ALL' && TN_DISTRICTS[selectedDistrict]?.wards && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.08em' }}>📍 Ward Deep-Dive (வார்டு)</span>
+            <select
+              value={selectedWard}
+              disabled={!!officerScope?.ward}
+              onChange={e => {
+                const wId = e.target.value;
+                setSelectedWard(wId);
+                if (wId === 'ALL') {
+                  const dist = TN_DISTRICTS[selectedDistrict];
+                  if (dist && leafletMapRef.current) leafletMapRef.current.flyTo(dist.coords, dist.zoom, { duration: 1.0 });
+                } else {
+                  const wardObj = TN_DISTRICTS[selectedDistrict]?.wards?.find(w => w.id === wId);
+                  if (wardObj && leafletMapRef.current) {
+                    leafletMapRef.current.flyTo(wardObj.coords, wardObj.zoom, { duration: 1.5 });
+                  }
+                }
+              }}
+              style={{
+                background: '#0c1222', border: '1px solid rgba(245, 158, 11, 0.4)', borderRadius: '7px',
+                color: '#f59e0b', padding: '7px 14px', fontSize: '0.82rem', cursor: 'pointer', fontWeight: 700
+              }}
+            >
+              <option value="ALL">All Wards in {selectedDistrict}</option>
+              {TN_DISTRICTS[selectedDistrict].wards.map(w => (
+                <option key={w.id} value={w.id}>{w.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {officerScope && (
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.72rem', color: '#10b981', fontWeight: 700 }}>
+            <ShieldCheck size={14} /> Scope Locked: {officerScope.name || officerScope.district}
+          </div>
+        )}
       </div>
 
       {/* STATS BAR */}
