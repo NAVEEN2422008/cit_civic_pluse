@@ -42,9 +42,9 @@ export default function LoginScreen({ onLogin, onBack, onCreateAccount, onForgot
   const [authMode, setAuthMode] = useState('otp');
   const [email, setEmail] = useState('naveen.citizen@test.in');
   const [password, setPassword] = useState('');
-  const [otp, setOtp] = useState('');
-  const [otpSent, setOtpSent] = useState(false);
-  const [demoOtp, setDemoOtp] = useState(null);
+  const [otp, setOtp] = useState('114110');
+  const [otpSent, setOtpSent] = useState(true);
+  const [demoOtp, setDemoOtp] = useState('114110');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -58,11 +58,13 @@ export default function LoginScreen({ onLogin, onBack, onCreateAccount, onForgot
     try {
       const r = await apiService.sendCitizenOtp(email);
       setOtpSent(true);
-      if (r && r.dev_otp) setDemoOtp(r.dev_otp);
+      const code = r?.dev_otp || '114110';
+      setDemoOtp(code);
+      setOtp(code);
     } catch (e) {
-      // In offline mode, generate a fake demo OTP
       setOtpSent(true);
       setDemoOtp('114110');
+      setOtp('114110');
     } finally { setLoading(false); }
   };
 
@@ -252,8 +254,33 @@ export default function LoginScreen({ onLogin, onBack, onCreateAccount, onForgot
                     </button>
                   </div>
                   {demoOtp && (
-                    <div className="badge badge-amber" style={{ marginTop: '10px', width: '100%', justifyContent: 'flex-start' }}>
-                      <Sparkles size={11} /> {lang === 'Tamil' ? 'டெமோ சோதனை OTP:' : 'Demo Test OTP:'} <strong style={{ marginLeft: 4, fontFamily: 'var(--font-mono)' }}>{demoOtp}</strong>
+                    <div style={{
+                      marginTop: '12px',
+                      padding: '10px 14px',
+                      background: 'linear-gradient(135deg, rgba(224,143,0,0.12) 0%, rgba(245,158,11,0.06) 100%)',
+                      border: '1px solid rgba(224,143,0,0.3)',
+                      borderRadius: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: 8
+                    }}>
+                      <div className="flex items-center gap-2">
+                        <Sparkles size={14} color="var(--amber-500)" />
+                        <span className="body-xs" style={{ color: 'var(--ink)' }}>
+                          {lang === 'Tamil' ? 'உள்நுழைவு OTP குறியீடு:' : 'Login OTP Code:'}{' '}
+                          <strong style={{ fontSize: '1rem', fontFamily: 'var(--font-mono)', color: 'var(--terra-500)', letterSpacing: '1px' }}>{demoOtp}</strong>
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setOtp(demoOtp)}
+                        className="btn btn-secondary btn-sm"
+                        style={{ padding: '3px 10px', fontSize: '0.72rem', background: '#fff' }}
+                      >
+                        ⚡ {lang === 'Tamil' ? 'தானாக நிரப்பு' : 'Auto-Fill'}
+                      </button>
                     </div>
                   )}
                 </div>
