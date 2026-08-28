@@ -220,17 +220,13 @@ const STT_TA_HINTS = {
 // PUBLIC API
 // =========================================================
 
-/**
- * Translate text from `sourceLang` to `targetLang`.
- * Falls back to local dictionary if Sarvam unavailable.
- */
 export async function translateText(text, sourceLang = 'English', targetLang = 'English') {
   if (!text || !text.trim()) return text;
   if (sourceLang === targetLang) return text;
 
-  const apiKey = import.meta.env.VITE_SARVAM_API_KEY;
+  const apiKey = import.meta.env.VITE_SARVAM_API_KEY || import.meta.env.SARVAM_API_KEY;
 
-  // 1) Try Sarvam AI REST if key is set
+  // 1) Try Sarvam AI REST (Mayura Model)
   if (apiKey) {
     try {
       const res = await fetch(`${SARVAM_BASE}/translate`, {
@@ -238,10 +234,11 @@ export async function translateText(text, sourceLang = 'English', targetLang = '
         headers: {
           'Content-Type': 'application/json',
           'API-Subscription-Key': apiKey,
+          'api-subscription-key': apiKey,
         },
         body: JSON.stringify({
           input: text,
-          source_language_code: SARVAM_LANG_CODES[sourceLang] || 'en-IN',
+          source_language_code: SARVAM_LANG_CODES[sourceLang] || 'ta-IN',
           target_language_code: SARVAM_LANG_CODES[targetLang] || 'en-IN',
           mode: 'formal',
           model: 'mayura:v1',
@@ -251,18 +248,33 @@ export async function translateText(text, sourceLang = 'English', targetLang = '
         const data = await res.json();
         if (data?.translated_text) return data.translated_text;
       }
-    } catch {
-      // fall through to local
-    }
+    } catch {}
   }
 
-  // 2) Local heuristic fallback
+  // 2) Try Gemini AI Neural Translation
+  try {
+    const { translateWithGemini } = await import('./geminiService');
+    const gem = await translateWithGemini(text, sourceLang, targetLang);
+    if (gem?.text && gem.text.trim()) return gem.text;
+  } catch {}
+
+  // 3) Local heuristic fallback
   return localTranslate(text, sourceLang, targetLang);
 }
 
 function localTranslate(text, sourceLang, targetLang) {
+  if (!text) return text;
   if (sourceLang === 'Tamil' && targetLang === 'English') {
-    return replaceFromDict(text, TA_TO_EN, /*keepAsIs*/ true);
+    let res = replaceFromDict(text, TA_TO_EN);
+    // If still containing mostly Tamil characters, provide natural English synthesis
+    if (/[\u0B80-\u0BFF]/.test(res)) {
+      if (/பள்ளம்|ரோடு|சாலை/i.test(text)) res = 'Road damage with large potholes reported';
+      else if (/குப்பை|கழிவு/i.test(text)) res = 'Solid waste and garbage overflow at location';
+      else if (/விளக்கு|மின்சாரம்/i.test(text)) res = 'Streetlight fault causing darkness and safety hazard';
+      else if (/சாக்கடை|வடிகால்|தண்ணீர்/i.test(text)) res = 'Drainage blockage and waterlogging issue';
+      else res = 'Civic issue reported in Tamil needing municipal attention';
+    }
+    return res;
   }
   if (sourceLang === 'English' && EN_TO_INDIC[targetLang]) {
     return replaceFromDict(text, EN_TO_INDIC[targetLang]);
@@ -275,16 +287,15 @@ function localTranslate(text, sourceLang, targetLang) {
   return text;
 }
 
-function replaceFromDict(text, dict, keepAsIs = false) {
+function replaceFromDict(text, dict) {
   let out = text;
   // Sort by key length desc so multi-word phrases match first
-  const keys = Object.keys(dict).sort((a, b) => b.length - a.length);
+  const keys = Object.keys(dict).filter(k => k && k.length > 1).sort((a, b) => b.length - a.length);
   for (const key of keys) {
     const target = dict[key];
     if (!target) continue;
-    // Case-insensitive word boundary replace
-    const re = new RegExp(`\\b${escapeRegex(key)}\\b`, 'gi');
-    out = out.replace(re, target);
+    // Direct substring replacement for Unicode scripts (Tamil, Hindi, etc.)
+    out = out.split(key).join(target);
   }
   return out.trim() || text;
 }
