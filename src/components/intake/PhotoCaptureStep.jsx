@@ -6,6 +6,7 @@ import { t, formatMsg } from '../../i18n/translations';
 
 export default function PhotoCaptureStep({ photoUrl, setPhotoUrl, onExifLocationDetected, language = 'English' }) {
   const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
   const [photoFile, setPhotoFile] = useState(null);
   const [photoExif, setPhotoExif] = useState(null);
   const [aiCheck, setAiCheck] = useState(null);
@@ -118,11 +119,19 @@ export default function PhotoCaptureStep({ photoUrl, setPhotoUrl, onExifLocation
         <ShieldX size={14} /> {t('report.aiWarning', language)}
       </p>
 
+      {/* Hidden File Inputs: One for direct Camera capture, one for File/Gallery picker */}
+      <input
+        type="file"
+        ref={cameraInputRef}
+        accept="image/*"
+        capture="environment"
+        style={{ display: 'none' }}
+        onChange={handleFileUpload}
+      />
       <input
         type="file"
         ref={fileInputRef}
         accept="image/*"
-        capture="environment"
         style={{ display: 'none' }}
         onChange={handleFileUpload}
       />
@@ -152,16 +161,36 @@ export default function PhotoCaptureStep({ photoUrl, setPhotoUrl, onExifLocation
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <div style={{ display: 'flex', gap: '10px' }}>
-            <button type="button" onClick={() => fileInputRef.current?.click()} className="glass-btn glass-btn-primary" style={{ flex: 1, padding: '16px', justifyContent: 'center', fontSize: '0.95rem' }}>
-              <Camera size={20} /> <span>{t('report.takePhoto', language)}</span>
+            <button
+              type="button"
+              onClick={() => {
+                if (cameraInputRef.current) {
+                  cameraInputRef.current.value = '';
+                  cameraInputRef.current.click();
+                }
+              }}
+              className="glass-btn glass-btn-primary"
+              style={{ flex: 1, padding: '16px', justifyContent: 'center', fontSize: '0.95rem' }}
+            >
+              <Camera size={20} /> <span>{t('report.takePhoto', language) || (language === 'Tamil' ? 'புகைப்படம் எடு' : 'Take Photo')}</span>
             </button>
-            <button type="button" onClick={() => fileInputRef.current?.click()} className="glass-btn" style={{ flex: 1, padding: '16px', justifyContent: 'center', fontSize: '0.95rem' }}>
-              <ImageIcon size={20} /> <span>{t('report.gallery', language)}</span>
+            <button
+              type="button"
+              onClick={() => {
+                if (fileInputRef.current) {
+                  fileInputRef.current.value = '';
+                  fileInputRef.current.click();
+                }
+              }}
+              className="glass-btn"
+              style={{ flex: 1, padding: '16px', justifyContent: 'center', fontSize: '0.95rem' }}
+            >
+              <ImageIcon size={20} /> <span>{t('report.gallery', language) || (language === 'Tamil' ? 'கேலரி பதிவேற்றம்' : 'Upload File')}</span>
             </button>
           </div>
           <div>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
-              Or choose a sample defect photo for testing:
+              {language === 'Tamil' ? 'அல்லது மாதிரி புகைப்படத்தை தேர்ந்தெடுக்கவும்:' : 'Or choose a sample defect photo for testing:'}
             </span>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px' }}>
               {sampleDemoImages.map((item, idx) => (
