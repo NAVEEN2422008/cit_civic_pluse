@@ -741,6 +741,47 @@ function OfficerWardMap({ issues = [], officer = {} }) {
 
       L.control.zoom({ position: 'bottomright' }).addTo(map);
 
+      // Precise Tamil Nadu State Border Coordinates for Polygon Cut-out Mask
+      const TN_STATE_BORDER = [
+        [13.50, 80.25], [13.40, 79.90], [13.25, 79.70], [13.00, 79.40], [12.80, 79.10],
+        [12.60, 78.70], [12.60, 78.20], [12.30, 77.80], [12.10, 77.50], [11.80, 77.30],
+        [11.60, 77.00], [11.50, 76.60], [11.35, 76.40], [11.20, 76.50], [10.80, 76.70],
+        [10.50, 76.90], [10.20, 77.20], [9.90, 77.30],  [9.50, 77.40],  [9.00, 77.30],
+        [8.70, 77.40],  [8.30, 77.50],  [8.08, 77.55],  [8.15, 77.80],  [8.60, 78.15],
+        [9.10, 78.80],  [9.30, 79.30],  [9.80, 79.10],  [10.30, 79.40], [10.75, 79.85],
+        [11.20, 79.80], [11.60, 79.80], [12.00, 79.85], [12.50, 80.20], [13.10, 80.30],
+        [13.50, 80.25]
+      ];
+
+      const WORLD_MASK_POLYGON = [
+        [
+          [-90, -180],
+          [-90, 180],
+          [90, 180],
+          [90, -180],
+          [-90, -180]
+        ],
+        TN_STATE_BORDER
+      ];
+
+      // Blackout everything outside Tamil Nadu
+      L.polygon(WORLD_MASK_POLYGON, {
+        fillColor: '#070b14',
+        fillOpacity: 0.94,
+        stroke: false,
+        interactive: false,
+      }).addTo(map);
+
+      // Glowing golden Tamil Nadu border
+      L.polygon(TN_STATE_BORDER, {
+        color: '#f59e0b',
+        weight: 2,
+        opacity: 0.8,
+        fill: false,
+        dashArray: '5, 5',
+        interactive: false,
+      }).addTo(map);
+
       // Focus map exclusively to officer's assigned jurisdiction
       const districtCoords = {
         'Coimbatore': [11.0168, 76.9558],

@@ -55,10 +55,28 @@ const PRIORITY_MAP = { CRITICAL: 0.95, HIGH: 0.88, MEDIUM: 0.65, LOW: 0.35 };
 const normalizeStatus = (s) => (s || 'OPEN').toUpperCase().replace(/\s+/g, '_');
 const NORMALIZED_STATUS = { OPEN: 'OPEN', IN_PROGRESS: 'IN_PROGRESS', RESOLVED: 'RESOLVED', PENDING_CONFIRMATION: 'PENDING_CONFIRMATION' };
 
-// Strict Tamil Nadu Geographic Bounding Box
-const TN_BOUNDS = [
-  [8.08, 76.22],  // South-West (Kanyakumari / Kerala border)
-  [13.55, 80.35]  // North-East (Tiruvallur / Chennai border)
+// Precise Tamil Nadu State Border Coordinates for Polygon Cut-out Mask
+const TN_STATE_BORDER = [
+  [13.50, 80.25], [13.40, 79.90], [13.25, 79.70], [13.00, 79.40], [12.80, 79.10],
+  [12.60, 78.70], [12.60, 78.20], [12.30, 77.80], [12.10, 77.50], [11.80, 77.30],
+  [11.60, 77.00], [11.50, 76.60], [11.35, 76.40], [11.20, 76.50], [10.80, 76.70],
+  [10.50, 76.90], [10.20, 77.20], [9.90, 77.30],  [9.50, 77.40],  [9.00, 77.30],
+  [8.70, 77.40],  [8.30, 77.50],  [8.08, 77.55],  [8.15, 77.80],  [8.60, 78.15],
+  [9.10, 78.80],  [9.30, 79.30],  [9.80, 79.10],  [10.30, 79.40], [10.75, 79.85],
+  [11.20, 79.80], [11.60, 79.80], [12.00, 79.85], [12.50, 80.20], [13.10, 80.30],
+  [13.50, 80.25]
+];
+
+// World Outer Bounds for Inverted Mask (Hides everything outside TN)
+const WORLD_MASK_POLYGON = [
+  [
+    [-90, -180],
+    [-90, 180],
+    [90, 180],
+    [90, -180],
+    [-90, -180]
+  ],
+  TN_STATE_BORDER // The hole cut out for Tamil Nadu
 ];
 
 const TN_DISTRICTS = {
@@ -227,6 +245,24 @@ export default function CivicHeatmapView({ publicIssues = [], onViewDetails, off
     markersGroupRef.current = L.layerGroup().addTo(map);
     zoneGroupRef.current = L.layerGroup().addTo(map);
     districtBoundaryGroupRef.current = L.layerGroup().addTo(map);
+
+    // 🌟 CUT-OUT MASK: Blackout everything outside Tamil Nadu with a dark spatial mask
+    L.polygon(WORLD_MASK_POLYGON, {
+      fillColor: '#070b14',
+      fillOpacity: 0.94,
+      stroke: false,
+      interactive: false,
+    }).addTo(map);
+
+    // 🌟 GOLDEN STATE BOUNDARY: Crisp glowing border around Tamil Nadu
+    L.polygon(TN_STATE_BORDER, {
+      color: '#f59e0b',
+      weight: 2.5,
+      opacity: 0.9,
+      fill: false,
+      dashArray: '6, 6',
+      interactive: false,
+    }).addTo(map);
 
     map.on('zoomend', () => setCurrentZoomLevel(map.getZoom()));
     setTimeout(() => { map.invalidateSize(); setMapReady(true); }, 400);
