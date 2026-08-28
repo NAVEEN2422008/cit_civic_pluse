@@ -474,6 +474,7 @@ export default function App() {
         isOpen={isTimelineModalOpen}
         onClose={() => setIsTimelineModalOpen(false)}
         issueDetail={selectedIssueDetail}
+        lang={lang || 'English'}
       />
 
     </div>

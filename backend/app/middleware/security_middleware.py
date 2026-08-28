@@ -28,14 +28,18 @@ rate_limiter = MemoryRateLimiter()
 
 class SecurityHeadersAndRateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
+        # Allow CORS preflight requests without rate limiting or interception
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
         client_ip = request.client.host if request.client else "127.0.0.1"
         path = request.url.path
 
         # Rate Limiting Policies
         rate_limits = {
-            "/api/v1/auth/request-otp": (3, 300),     # 3 requests per 5 min
-            "/api/v1/auth/login": (5, 300),           # 5 requests per 5 min
-            "/api/v1/issues/create": (10, 3600),       # 10 requests per hour
+            "/api/v1/auth/request-otp": (10, 60),     # 10 requests per 1 min
+            "/api/v1/auth/login": (15, 60),           # 15 requests per 1 min
+            "/api/v1/issues/create": (30, 3600),       # 30 requests per hour
         }
 
         for route_prefix, (max_req, window_sec) in rate_limits.items():
@@ -49,7 +53,12 @@ class SecurityHeadersAndRateLimitMiddleware(BaseHTTPMiddleware):
                             "detail": f"Rate limit exceeded. Too many requests. Please try again in {retry_after} seconds.",
                             "retry_after_seconds": retry_after
                         },
-                        headers={"Retry-After": str(retry_after)}
+                        headers={
+                            "Retry-After": str(retry_after),
+                            "Access-Control-Allow-Origin": "*",
+                            "Access-Control-Allow-Methods": "*",
+                            "Access-Control-Allow-Headers": "*"
+                        }
                     )
 
         response = await call_next(request)
@@ -57,7 +66,6 @@ class SecurityHeadersAndRateLimitMiddleware(BaseHTTPMiddleware):
         # Secure HTTP Response Headers
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         response.headers["X-XSS-Protection"] = "1; mode=block"
 
         return response

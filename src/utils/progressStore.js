@@ -48,12 +48,13 @@ export function addProgressEntry(entry) {
   list.push(newEntry);
   saveAll(list);
 
-  // Fire-and-forget: persist to Firestore too
+  // Fire-and-forget: persist to Firestore too (strip undefined fields)
   if (typeof window !== 'undefined') {
-        import('../firebase').then(({ db }) => {
+    const firestoreData = JSON.parse(JSON.stringify(newEntry));
+    import('../firebase').then(({ db }) => {
       if (!db) return;
       import('firebase/firestore').then(({ collection, addDoc }) => {
-        addDoc(collection(db, 'officer_progress'), newEntry).catch((err) => {
+        addDoc(collection(db, 'officer_progress'), firestoreData).catch((err) => {
           console.warn('firestore progress save failed:', err.message);
         });
       });
