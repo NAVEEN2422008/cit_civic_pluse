@@ -160,6 +160,8 @@ export default function OfficerPortal({ officer = {}, onLogout, onOpenGovernance
     setSelectedIssue(null);
   };
 
+  const isTa = officer.lang === 'Tamil' || officer.lang === 'ta';
+
   return (
     <div className="officer-shell">
 
@@ -171,9 +173,11 @@ export default function OfficerPortal({ officer = {}, onLogout, onOpenGovernance
           </div>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: '.95rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
-              {TIER_META[tier].label}
+              {isTa ? (tier === 'ward' ? 'வார்டு கள அதிகாரி' : tier === 'zonal' ? 'மண்டல தலைவர்' : tier === 'collector' ? 'மாவட்ட ஆட்சியர்' : 'மாநில நிர்வாகி') : TIER_META[tier].label}
             </div>
-            <div className="body-xs" style={{ color: 'var(--ink-muted)' }}>{TIER_META[tier].scope}</div>
+            <div className="body-xs" style={{ color: 'var(--ink-muted)' }}>
+              {isTa ? (tier === 'ward' ? 'வார்டு எல்லை' : tier === 'zonal' ? 'மண்டல எல்லை' : tier === 'collector' ? 'மாவட்ட எல்லை' : 'மாநில அளவிலான SLA') : TIER_META[tier].scope}
+            </div>
           </div>
         </div>
 
@@ -184,12 +188,12 @@ export default function OfficerPortal({ officer = {}, onLogout, onOpenGovernance
         </div>
 
         <div style={{ padding: '0 var(--sp-5)' }}>
-          <div className="label-sm" style={{ marginBottom: 'var(--sp-2)' }}>My workspace</div>
+          <div className="label-sm" style={{ marginBottom: 'var(--sp-2)' }}>{isTa ? 'எனது பணியிடம்' : 'My workspace'}</div>
           {[
-            { id: 'today', label: "Today's focus", icon: LayoutGrid, count: counts.awaitingMe },
-            { id: 'tasks', label: 'My tasks', icon: ClipboardList, count: myTasks.length },
-            { id: 'ward', label: 'My ward map', icon: MapIcon },
-            { id: 'performance', label: 'My performance', icon: BarChart3 },
+            { id: 'today', label: isTa ? "இன்றைய முக்கியத்துவம்" : "Today's focus", icon: LayoutGrid, count: counts.awaitingMe },
+            { id: 'tasks', label: isTa ? "எனது பணிகள்" : "My tasks", icon: ClipboardList, count: myTasks.length },
+            { id: 'ward', label: isTa ? "வார்டு வரைபடம்" : "My ward map", icon: MapIcon },
+            { id: 'performance', label: isTa ? "எனது செயல்திறன்" : "My performance", icon: BarChart3 },
           ].map(n => {
             const Icon = n.icon;
             const active = tab === n.id;
@@ -210,10 +214,10 @@ export default function OfficerPortal({ officer = {}, onLogout, onOpenGovernance
 
           {isSupervisor && (
             <>
-              <div className="label-sm" style={{ margin: 'var(--sp-5) 0 var(--sp-2)' }}>Supervision</div>
+              <div className="label-sm" style={{ margin: 'var(--sp-5) 0 var(--sp-2)' }}>{isTa ? "மேற்பார்வை" : "Supervision"}</div>
               {[
-                { id: 'team', label: 'Team workload', icon: UsersIcon, count: 12 },
-                { id: 'assign', label: 'Assign & dispatch', icon: ListChecks },
+                { id: 'team', label: isTa ? "குழு பணிச்சுமை" : "Team workload", icon: UsersIcon, count: 12 },
+                { id: 'assign', label: isTa ? "பணி ஒதுக்கீடு & அனுப்பு" : "Assign & dispatch", icon: ListChecks },
               ].map(n => {
                 const Icon = n.icon;
                 const active = tab === n.id;
@@ -236,17 +240,17 @@ export default function OfficerPortal({ officer = {}, onLogout, onOpenGovernance
         {(isGov) && onOpenGovernance && (
           <div style={{ padding: 'var(--sp-4) var(--sp-5)' }}>
             <button onClick={onOpenGovernance} className="btn btn-amber" style={{ width: '100%' }}>
-              <ShieldCheck size={15} /> Governance portal
+              <ShieldCheck size={15} /> {isTa ? "மாநில நிர்வாக மையம்" : "Governance portal"}
             </button>
           </div>
         )}
 
         <div style={{ padding: 'var(--sp-4) var(--sp-5)', borderTop: '1px solid var(--border)', marginTop: 'auto' }}>
           <button onClick={onOpenProfile} className="btn btn-secondary btn-sm" style={{ width: '100%', justifyContent: 'flex-start', marginBottom: 8 }}>
-            <User size={13} /> My profile
+            <User size={13} /> {isTa ? "எனது சுயவிவரம்" : "My profile"}
           </button>
           <button onClick={onLogout} className="btn btn-ghost btn-sm" style={{ width: '100%', justifyContent: 'flex-start' }}>
-            <LogOut size={13} /> Sign out
+            <LogOut size={13} /> {isTa ? "வெளியேறு" : "Sign out"}
           </button>
         </div>
       </aside>
