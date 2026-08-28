@@ -23,8 +23,8 @@ async function runScreenshotCapture() {
 
   try {
     // 1. HOME LANDING PAGE
-    console.log('📸 Navigating to http://localhost:5173...');
-    await page.goto('http://localhost:5173', { waitUntil: 'networkidle2' });
+    console.log('📸 Navigating to http://localhost:5174...');
+    await page.goto('http://localhost:5174', { waitUntil: 'networkidle2' });
     await new Promise(r => setTimeout(r, 1500));
     await page.screenshot({ path: path.join(OUTPUT_DIR, 'screenshot_1_home_landing.png') });
     console.log('✓ Captured: screenshot_1_home_landing.png');
