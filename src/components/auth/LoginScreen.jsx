@@ -322,8 +322,45 @@ export default function LoginScreen({ onLogin, onBack, onCreateAccount, onForgot
                 {loading ? 'Authenticating…' : <>Open officer portal <ArrowRight size={14} /></>}
               </button>
 
-              <div className="body-xs" style={{ textAlign: 'center', color: 'var(--ink-muted)', marginTop: 'var(--sp-4)' }}>
-                Demo: <span className="mono" style={{ color: 'var(--ink-2)' }}>OFF001 / Demo@123</span>
+              {/* Quick Preset Selector for Testing All Officer Roles */}
+              <div style={{ marginTop: 'var(--sp-4)', padding: '12px', background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: '10px' }}>
+                <div className="body-xs bold" style={{ color: 'var(--amber-400)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Sparkles size={12} /> 1-Click Demo Officer Presets:
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                  <button
+                    type="button"
+                    onClick={() => { setOfficerId('OFF001'); setOfficerPass('Demo@123'); }}
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: '0.72rem', padding: '6px', justifyContent: 'flex-start', border: officerId === 'OFF001' ? '1px solid var(--amber-400)' : undefined }}
+                  >
+                    👷 Ward Officer (OFF001)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setOfficerId('ZONAL_CHENNAI'); setOfficerPass('Demo@123'); }}
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: '0.72rem', padding: '6px', justifyContent: 'flex-start', border: officerId === 'ZONAL_CHENNAI' ? '1px solid var(--amber-400)' : undefined }}
+                  >
+                    🏢 Zonal Head (ZONAL_CHENNAI)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setOfficerId('COLLECTOR_CBE'); setOfficerPass('Demo@123'); }}
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: '0.72rem', padding: '6px', justifyContent: 'flex-start', border: officerId === 'COLLECTOR_CBE' ? '1px solid var(--amber-400)' : undefined }}
+                  >
+                    🏛️ Collector (COLLECTOR_CBE)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setOfficerId('ADMIN_TN'); setOfficerPass('Demo@123'); }}
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: '0.72rem', padding: '6px', justifyContent: 'flex-start', border: officerId === 'ADMIN_TN' ? '1px solid var(--amber-400)' : undefined }}
+                  >
+                    👑 State Admin (ADMIN_TN)
+                  </button>
+                </div>
               </div>
             </form>
           )}

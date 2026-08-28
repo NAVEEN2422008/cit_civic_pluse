@@ -360,17 +360,40 @@ export default function App() {
                       tier: result.tier,
                     });
                   } catch (loginErr) {
+                    const idUpper = (data.officer_id || '').toUpperCase();
+                    let tier = 'ward';
+                    let name = 'Ramesh Kumar (Ward Officer)';
+                    let dept = 'Roads & Infrastructure';
+                    let district = 'Coimbatore';
+
+                    if (idUpper.includes('ADMIN')) {
+                      tier = 'admin';
+                      name = 'Dr. S. Radhakrishnan (State Admin)';
+                      dept = 'Municipal Administration';
+                      district = 'Tamil Nadu Statewide';
+                    } else if (idUpper.includes('COLLECTOR')) {
+                      tier = 'collector';
+                      name = 'K. Rajamani IAS (District Collector)';
+                      dept = 'Revenue & Governance';
+                      district = 'Coimbatore';
+                    } else if (idUpper.includes('ZONAL')) {
+                      tier = 'zonal';
+                      name = 'M. Selvam (Zonal Head)';
+                      dept = 'Highways & Public Works';
+                      district = 'Chennai';
+                    }
+
                     handleAuthSuccess({
                       role: data.role === 'officer' ? 'OFFICER' : 'CITIZEN',
                       user_id: data.role === 'officer' ? data.officer_id : data.email,
                       email: data.email || `${data.officer_id}@gov.in`,
                       officer_id: data.officer_id,
                       preferred_language: 'English',
-                      name: data.role === 'officer' ? 'Ramesh Kumar' : undefined,
-                      department: data.role === 'officer' ? 'Roads & Infrastructure' : undefined,
-                      district: data.role === 'officer' ? 'Coimbatore' : undefined,
+                      name: data.role === 'officer' ? name : undefined,
+                      department: data.role === 'officer' ? dept : undefined,
+                      district: data.role === 'officer' ? district : undefined,
                       zone: data.role === 'officer' ? 'Zone 5' : undefined,
-                      tier: data.role === 'officer' ? 'ward' : undefined,
+                      tier: data.role === 'officer' ? tier : undefined,
                     });
                   }
                 }}

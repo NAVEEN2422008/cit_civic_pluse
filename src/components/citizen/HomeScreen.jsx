@@ -8,6 +8,7 @@ import {
 import PublicIssueCard from './PublicIssueCard';
 import EmptyState from './EmptyState';
 import { apiService } from '../../utils/apiService';
+import { t } from '../../i18n/translations';
 
 const KolamSVG = ({ size = 60, opacity = 0.1 }) => (
   <svg width={size} height={size} viewBox="0 0 60 60" fill="none" style={{ opacity }} xmlns="http://www.w3.org/2000/svg">
@@ -27,7 +28,7 @@ export default function HomeScreen({
   onViewDetails,
   onOpenNotifications,
   onOpenProfile,
-  lang = 'en'
+  lang = 'English'
 }) {
   const [summaryData, setSummaryData] = useState({
     active_count: 2, processing_count: 1, resolved_count: 4, reopened_count: 0,
@@ -51,11 +52,13 @@ export default function HomeScreen({
   const userName = userProfile?.email ? userProfile.email.split('@')[0] : 'Citizen';
   const firstName = userName.charAt(0).toUpperCase() + userName.slice(1);
 
+  const isTa = lang === 'Tamil';
+
   const stats = [
-    { key: 'active', icon: AlertTriangle, v: summaryData.active_count, l: 'Active', sub: 'being worked on', color: 'var(--danger)', bg: '#fff1f2' },
-    { key: 'processing', icon: Clock, v: summaryData.processing_count, l: 'In progress', sub: 'officer assigned', color: 'var(--amber-500)', bg: 'var(--amber-50)' },
-    { key: 'resolved', icon: CheckCircle2, v: summaryData.resolved_count, l: 'Resolved', sub: 'you verified', color: 'var(--green-500)', bg: 'var(--green-50)' },
-    { key: 'reopened', icon: FileText, v: summaryData.reopened_count, l: 'Reopened', sub: 'needs more work', color: 'var(--info)', bg: 'var(--info-bg)' },
+    { key: 'active', icon: AlertTriangle, v: summaryData.active_count, l: isTa ? 'செயலில்' : 'Active', sub: isTa ? 'பணி நடைபெறுகிறது' : 'being worked on', color: 'var(--danger)', bg: '#fff1f2' },
+    { key: 'processing', icon: Clock, v: summaryData.processing_count, l: isTa ? 'நடைபெறுகிறது' : 'In progress', sub: isTa ? 'அதிகாரி நியமிக்கப்பட்டார்' : 'officer assigned', color: 'var(--amber-500)', bg: 'var(--amber-50)' },
+    { key: 'resolved', icon: CheckCircle2, v: summaryData.resolved_count, l: isTa ? 'தீர்க்கப்பட்டது' : 'Resolved', sub: isTa ? 'நீங்கள் உறுதிப்படுத்தினீர்கள்' : 'you verified', color: 'var(--green-500)', bg: 'var(--green-50)' },
+    { key: 'reopened', icon: FileText, v: summaryData.reopened_count, l: isTa ? 'மீண்டும் திறக்கப்பட்டது' : 'Reopened', sub: isTa ? 'கூடுதல் வேலை தேவை' : 'needs more work', color: 'var(--info)', bg: 'var(--info-bg)' },
   ];
 
   return (
@@ -74,14 +77,15 @@ export default function HomeScreen({
           <div>
             <div className="label-sm" style={{ color: '#fbd77a', marginBottom: 'var(--sp-3)' }}>
               <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#86efac', marginRight: 8, verticalAlign: 'middle' }}></span>
-              Signed in · {userProfile?.civic_user_id || 'CIV-CITIZEN'}
+              {isTa ? 'உள்நுழைந்துள்ளீர்கள்' : 'Signed in'} · {userProfile?.civic_user_id || 'CIV-CITIZEN'}
             </div>
             <h1 className="display-md" style={{ color: 'var(--ink-inverse)', marginBottom: 'var(--sp-2)' }}>
-              Vanakkam, <span className="editorial" style={{ color: '#fbd77a' }}>{firstName}.</span>
+              {isTa ? 'வணக்கம்' : 'Vanakkam'}, <span className="editorial" style={{ color: '#fbd77a' }}>{firstName}.</span>
             </h1>
             <p style={{ color: 'var(--ink-faint)', maxWidth: '500px' }}>
-              Your city is moving. See what's happening around you, and report
-              what needs fixing.
+              {isTa
+                ? 'உங்கள் நகரம் நகர்கிறது. உங்களைச் சுற்றி என்ன நடக்கிறது என்று பாருங்கள், என்ன சரி செய்ய வேண்டும் என்பதைப் புகாரளியுங்கள்.'
+                : 'Your city is moving. See what\'s happening around you, and report what needs fixing.'}
             </p>
           </div>
           <div className="flex gap-2 hide-mobile">
@@ -111,13 +115,13 @@ export default function HomeScreen({
       >
         <div>
           <div className="label-sm" style={{ color: 'rgba(253,252,249,.7)', marginBottom: '8px' }}>
-            <Sparkles size={12} style={{ verticalAlign: 'middle', marginRight: 4 }} /> ONE-TAP REPORT
+            <Sparkles size={12} style={{ verticalAlign: 'middle', marginRight: 4 }} /> {isTa ? 'ஒரே-தட்டு புகார்' : 'ONE-TAP REPORT'}
           </div>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(1.4rem, 3vw, 1.75rem)', fontWeight: 800, letterSpacing: '-.02em', marginBottom: '4px' }}>
-            See something broken?
+            {isTa ? 'ஏதாவது உடைந்ததா?' : 'See something broken?'}
           </div>
           <div style={{ fontSize: '.85rem', color: 'rgba(253,252,249,.85)' }}>
-            Voice · Photo · GPS — under a minute
+            {isTa ? 'குரல் · புகைப்படம் · GPS — ஒரு நிமிடத்திற்குள்' : 'Voice · Photo · GPS — under a minute'}
           </div>
         </div>
         <div style={{
@@ -132,10 +136,10 @@ export default function HomeScreen({
       {/* === QUICK ACTIONS === */}
       <div className="grid-4 reveal d-2" style={{ marginBottom: 'var(--sp-6)' }}>
         {[
-          { icon: Mic, label: 'Voice', color: 'var(--green-500)' },
-          { icon: Camera, label: 'Photo', color: 'var(--terra-400)' },
+          { icon: Mic, label: isTa ? 'குரல்' : 'Voice', color: 'var(--green-500)' },
+          { icon: Camera, label: isTa ? 'புகைப்படம்' : 'Photo', color: 'var(--terra-400)' },
           { icon: MapPin, label: 'GPS', color: 'var(--amber-500)' },
-          { icon: MessageSquare, label: 'Text', color: 'var(--info)' },
+          { icon: MessageSquare, label: isTa ? 'உரை' : 'Text', color: 'var(--info)' },
         ].map((a, i) => {
           const Icon = a.icon;
           return (
@@ -157,11 +161,11 @@ export default function HomeScreen({
       <div className="reveal d-3" style={{ marginBottom: 'var(--sp-6)' }}>
         <div className="flex justify-between items-center" style={{ marginBottom: 'var(--sp-4)' }}>
           <div>
-            <h2 className="display-sm" style={{ marginBottom: '4px' }}>Your impact, at a glance.</h2>
-            <p className="body-xs" style={{ color: 'var(--ink-muted)' }}>All your reports, past and present.</p>
+            <h2 className="display-sm" style={{ marginBottom: '4px' }}>{isTa ? 'உங்கள் தாக்கம், ஒரே பார்வையில்.' : 'Your impact, at a glance.'}</h2>
+            <p className="body-xs" style={{ color: 'var(--ink-muted)' }}>{isTa ? 'உங்கள் அனைத்து புகார்களும், கடந்த கால மற்றும் நிகழ்காலம்.' : 'All your reports, past and present.'}</p>
           </div>
           <button onClick={onViewAllMyComplaints} className="btn btn-ghost btn-sm">
-            View all <ChevronRight size={14} />
+            {isTa ? 'அனைத்தும் பார்' : 'View all'} <ChevronRight size={14} />
           </button>
         </div>
 
@@ -208,8 +212,8 @@ export default function HomeScreen({
           <Award size={22} color="var(--ink)" />
         </div>
         <div>
-          <div className="bold body-sm" style={{ color: 'var(--ink)' }}>You're in the top 12% of reporters in your ward.</div>
-          <div className="body-xs" style={{ color: 'var(--ink-3)' }}>4 reports verified and resolved. Keep going.</div>
+          <div className="bold body-sm" style={{ color: 'var(--ink)' }}>{isTa ? 'நீங்கள் உங்கள் வார்டில் உள்ள புகாரளிப்போரில் சிறந்த 12% பேரில் உள்ளீர்கள்.' : "You're in the top 12% of reporters in your ward."}</div>
+          <div className="body-xs" style={{ color: 'var(--ink-3)' }}>{isTa ? '4 புகார்கள் சரிபார்க்கப்பட்டு தீர்க்கப்பட்டன. தொடர்ந்து செயல்படுங்கள்.' : '4 reports verified and resolved. Keep going.'}</div>
         </div>
         <ChevronRight size={18} color="var(--ink-3)" />
       </div>
@@ -218,12 +222,12 @@ export default function HomeScreen({
       <div className="reveal d-5">
         <div className="flex justify-between items-center" style={{ marginBottom: 'var(--sp-4)' }}>
           <div>
-            <div className="section-label">Live from your ward</div>
-            <h2 className="display-sm">Community issues nearby</h2>
+            <div className="section-label">{isTa ? 'உங்கள் வார்டிலிருந்து நேரடி' : 'Live from your ward'}</div>
+            <h2 className="display-sm">{isTa ? 'அருகிலுள்ள சமூக புகார்கள்' : 'Community issues nearby'}</h2>
           </div>
           <div className="live-badge" style={{ alignItems: 'center' }}>
             <span className="live-dot"></span>
-            <span>Live</span>
+            <span>{isTa ? 'நேரடி' : 'Live'}</span>
           </div>
         </div>
 
@@ -235,9 +239,9 @@ export default function HomeScreen({
           </div>
         ) : (
           <EmptyState
-            title="Your ward is squeaky clean"
-            description="No public complaints reported nearby today. Either everything works (rare) or you should be the first to spot something."
-            actionText="Report an issue"
+            title={isTa ? 'உங்கள் வார்டு சுத்தமாக உள்ளது' : 'Your ward is squeaky clean'}
+            description={isTa ? 'இன்று அருகில் புகார்கள் எதுவும் இல்லை. அரிதாக இருந்தால் அனைத்தும் செயல்படுகிறது, இல்லையெனில் நீங்கள் முதலில் கவனிக்க வேண்டும்.' : 'No public complaints reported nearby today. Either everything works (rare) or you should be the first to spot something.'}
+            actionText={isTa ? 'புகாரளி' : 'Report an issue'}
             onAction={onReportClick}
           />
         )}
