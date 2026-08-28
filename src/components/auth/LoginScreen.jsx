@@ -37,7 +37,7 @@ const KolamSVG = ({ size = 200, opacity = 0.08 }) => (
   </svg>
 );
 
-export default function LoginScreen({ onLogin, onBack, onCreateAccount, onForgotPassword }) {
+export default function LoginScreen({ onLogin, onBack, onCreateAccount, onForgotPassword, lang = 'English' }) {
   const [role, setRole] = useState('citizen');
   const [authMode, setAuthMode] = useState('otp');
   const [email, setEmail] = useState('naveen.citizen@test.in');
@@ -108,21 +108,25 @@ export default function LoginScreen({ onLogin, onBack, onCreateAccount, onForgot
                 CivicPulse
               </div>
               <div style={{ fontSize: '.7rem', color: 'var(--ink-faint)' }}>
-                Government of Tamil Nadu
+                {lang === 'Tamil' ? 'தமிழ்நாடு அரசு' : 'Government of Tamil Nadu'}
               </div>
             </div>
           </div>
 
           <div className="section-label" style={{ color: '#fbd77a' }}>
-            Welcome back
+            {lang === 'Tamil' ? 'மீண்டும் வருக' : 'Welcome back'}
           </div>
           <h1 className="display-lg" style={{ color: 'var(--ink-inverse)', marginBottom: 'var(--sp-5)' }}>
-            Sign in to <span className="editorial" style={{ color: '#fbd77a' }}>continue</span>
-            <br />your civic work.
+            {lang === 'Tamil' ? (
+              <>உங்கள் குடிமக்கள் பணியைத் <br /><span className="editorial" style={{ color: '#fbd77a' }}>தொடர</span> உள்நுழையவும்.</>
+            ) : (
+              <>Sign in to <span className="editorial" style={{ color: '#fbd77a' }}>continue</span><br />your civic work.</>
+            )}
           </h1>
           <p className="body-lg" style={{ color: 'var(--ink-faint)', maxWidth: '420px' }}>
-            File a report, track it to resolution, or join 12,400 officers
-            making Tamil Nadu's cities work better, every day.
+            {lang === 'Tamil'
+              ? 'புகாரைப் பதிவுசெய்யவும், அதன் தீர்வை கண்காணிக்கவும், அல்லது தமிழ்நாட்டின் நகரங்களை மேம்படுத்தும் 12,400 அதிகாரிகளுடன் இணையவும்.'
+              : "File a report, track it to resolution, or join 12,400 officers making Tamil Nadu's cities work better, every day."}
           </p>
         </div>
 
@@ -130,15 +134,15 @@ export default function LoginScreen({ onLogin, onBack, onCreateAccount, onForgot
         <div style={{ position: 'relative', zIndex: 2, display: 'flex', gap: 'var(--sp-8)', paddingTop: 'var(--sp-8)', borderTop: '1px solid rgba(253,252,249,.1)' }}>
           <div>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', fontWeight: 800, color: '#fbd77a', lineHeight: 1 }}>2.8L</div>
-            <div className="body-xs" style={{ color: 'var(--ink-faint)', marginTop: '4px' }}>citizens served</div>
+            <div className="body-xs" style={{ color: 'var(--ink-faint)', marginTop: '4px' }}>{lang === 'Tamil' ? 'குடிமக்கள் பயன்' : 'citizens served'}</div>
           </div>
           <div>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', fontWeight: 800, color: '#fbd77a', lineHeight: 1 }}>94.2%</div>
-            <div className="body-xs" style={{ color: 'var(--ink-faint)', marginTop: '4px' }}>resolved in 7 days</div>
+            <div className="body-xs" style={{ color: 'var(--ink-faint)', marginTop: '4px' }}>{lang === 'Tamil' ? '7 நாளில் தீர்வு' : 'resolved in 7 days'}</div>
           </div>
           <div>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', fontWeight: 800, color: '#fbd77a', lineHeight: 1 }}>38</div>
-            <div className="body-xs" style={{ color: 'var(--ink-faint)', marginTop: '4px' }}>districts active</div>
+            <div className="body-xs" style={{ color: 'var(--ink-faint)', marginTop: '4px' }}>{lang === 'Tamil' ? 'மாவட்டங்கள்' : 'districts active'}</div>
           </div>
         </div>
       </aside>
@@ -150,22 +154,22 @@ export default function LoginScreen({ onLogin, onBack, onCreateAccount, onForgot
       }}>
         <div className="flex justify-between items-center" style={{ marginBottom: 'var(--sp-10)' }}>
           <button onClick={onBack} className="btn btn-ghost btn-sm">
-            ← Back to home
+            ← {lang === 'Tamil' ? 'முகப்புக்குத் திரும்பு' : 'Back to home'}
           </button>
           <div className="flex items-center gap-2 body-xs" style={{ color: 'var(--ink-muted)' }}>
             <ShieldCheck size={13} color="var(--green-500)" />
-            <span>Encrypted · RTI-compliant</span>
+            <span>{lang === 'Tamil' ? 'குறியாக்கம் · RTI இணக்கம்' : 'Encrypted · RTI-compliant'}</span>
           </div>
         </div>
 
         <div style={{ maxWidth: '440px', width: '100%', margin: '0 auto' }}>
 
-          <div className="section-label">Step 01 / 02</div>
+          <div className="section-label">{lang === 'Tamil' ? 'படி 01 / 02' : 'Step 01 / 02'}</div>
           <h2 className="display-md" style={{ fontSize: '2rem', marginBottom: '8px' }}>
-            Choose your <span className="editorial">portal.</span>
+            {lang === 'Tamil' ? (<>உங்கள் <span className="editorial">போர்ட்டலைத்</span> தேர்ந்தெடுக்கவும்.</>) : (<>Choose your <span className="editorial">portal.</span></>)}
           </h2>
           <p className="body-sm" style={{ color: 'var(--ink-3)', marginBottom: 'var(--sp-6)' }}>
-            Two entrances, one mission. Pick where you belong.
+            {lang === 'Tamil' ? 'இரு நுழைவாயில்கள், ஒரு நோக்கம். நீங்கள் எங்கு சேர வேண்டும் என்பதைத் தேர்ந்தெடுங்கள்.' : 'Two entrances, one mission. Pick where you belong.'}
           </p>
 
           {/* Role selector */}
@@ -187,8 +191,8 @@ export default function LoginScreen({ onLogin, onBack, onCreateAccount, onForgot
                 </div>
                 {role === 'citizen' && <CheckCircle2 size={16} color="var(--green-500)" />}
               </div>
-              <div className="bold body-sm">Citizen</div>
-              <div className="body-xs" style={{ color: 'var(--ink-muted)' }}>File & track reports</div>
+              <div className="bold body-sm">{lang === 'Tamil' ? 'குடிமக்கள்' : 'Citizen'}</div>
+              <div className="body-xs" style={{ color: 'var(--ink-muted)' }}>{lang === 'Tamil' ? 'புகார் பதிவு & கண்காணிப்பு' : 'File & track reports'}</div>
             </button>
 
             <button type="button" onClick={() => setRole('officer')}
@@ -208,8 +212,8 @@ export default function LoginScreen({ onLogin, onBack, onCreateAccount, onForgot
                 </div>
                 {role === 'officer' && <CheckCircle2 size={16} color="var(--amber-500)" />}
               </div>
-              <div className="bold body-sm">Officer / Admin</div>
-              <div className="body-xs" style={{ color: 'var(--ink-muted)' }}>Resolve & manage</div>
+              <div className="bold body-sm">{lang === 'Tamil' ? 'அதிகாரி / நிர்வாகம்' : 'Officer / Admin'}</div>
+              <div className="body-xs" style={{ color: 'var(--ink-muted)' }}>{lang === 'Tamil' ? 'தீர்க்கவும் & நிர்வகிக்கவும்' : 'Resolve & manage'}</div>
             </button>
           </div>
 
@@ -221,44 +225,44 @@ export default function LoginScreen({ onLogin, onBack, onCreateAccount, onForgot
                 <button type="button" onClick={() => setAuthMode('otp')}
                   className={`tab ${authMode === 'otp' ? 'active' : ''}`} style={{ flex: 1 }}>
                   <Mail size={12} style={{ marginRight: 6, verticalAlign: 'middle' }} />
-                  Email OTP
+                  {lang === 'Tamil' ? 'மின்னஞ்சல் OTP' : 'Email OTP'}
                 </button>
                 <button type="button" onClick={() => setAuthMode('password')}
                   className={`tab ${authMode === 'password' ? 'active' : ''}`} style={{ flex: 1 }}>
                   <Lock size={12} style={{ marginRight: 6, verticalAlign: 'middle' }} />
-                  Password
+                  {lang === 'Tamil' ? 'கடவுச்சொல்' : 'Password'}
                 </button>
               </div>
 
               <div className="field">
-                <label className="label">Email address</label>
+                <label className="label">{lang === 'Tamil' ? 'மின்னஞ்சல் முகவரி' : 'Email address'}</label>
                 <input className="input" type="email" placeholder="you@example.com"
                   value={email} onChange={(e) => setEmail(e.target.value)} required />
               </div>
 
               {authMode === 'otp' ? (
                 <div className="field">
-                  <label className="label">One-time passcode</label>
+                  <label className="label">{lang === 'Tamil' ? 'ஒருமுறை கடவுச்சொல் (OTP)' : 'One-time passcode'}</label>
                   <div className="flex gap-2">
                     <input className="input mono" type="text" inputMode="numeric" maxLength={6}
-                      placeholder="6-digit code" value={otp} onChange={(e) => setOtp(e.target.value)} required />
+                      placeholder={lang === 'Tamil' ? '6-இலக்க எண்' : '6-digit code'} value={otp} onChange={(e) => setOtp(e.target.value)} required />
                     <button type="button" onClick={sendOtp} disabled={loading || !email}
                       className="btn btn-secondary" style={{ flexShrink: 0, whiteSpace: 'nowrap' }}>
-                      {otpSent ? 'Resend' : 'Send OTP'}
+                      {otpSent ? (lang === 'Tamil' ? 'மீண்டும் அனுப்பு' : 'Resend') : (lang === 'Tamil' ? 'OTP அனுப்பு' : 'Send OTP')}
                     </button>
                   </div>
                   {demoOtp && (
                     <div className="badge badge-amber" style={{ marginTop: '10px', width: '100%', justifyContent: 'flex-start' }}>
-                      <Sparkles size={11} /> Demo Test OTP: <strong style={{ marginLeft: 4, fontFamily: 'var(--font-mono)' }}>{demoOtp}</strong>
+                      <Sparkles size={11} /> {lang === 'Tamil' ? 'டெமோ சோதனை OTP:' : 'Demo Test OTP:'} <strong style={{ marginLeft: 4, fontFamily: 'var(--font-mono)' }}>{demoOtp}</strong>
                     </div>
                   )}
                 </div>
               ) : (
                 <div className="field">
-                  <label className="label">Password</label>
+                  <label className="label">{lang === 'Tamil' ? 'கடவுச்சொல்' : 'Password'}</label>
                   <div style={{ position: 'relative' }}>
                     <input className="input" type={showPassword ? 'text' : 'password'}
-                      placeholder="Enter your password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                      placeholder={lang === 'Tamil' ? 'கடவுச்சொல்லை உள்ளிடவும்' : 'Enter your password'} value={password} onChange={(e) => setPassword(e.target.value)} required />
                     <button type="button" onClick={() => setShowPassword(s => !s)}
                       style={{
                         position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
@@ -269,7 +273,7 @@ export default function LoginScreen({ onLogin, onBack, onCreateAccount, onForgot
                   </div>
                   <div style={{ textAlign: 'right', marginTop: '6px' }}>
                     <a onClick={onForgotPassword} style={{ color: 'var(--ink-muted)', fontWeight: 500, cursor: 'pointer' }}>
-                      Forgot password?
+                      {lang === 'Tamil' ? 'கடவுச்சொல் மறந்துவிட்டதா?' : 'Forgot password?'}
                     </a>
                   </div>
                 </div>
@@ -282,26 +286,26 @@ export default function LoginScreen({ onLogin, onBack, onCreateAccount, onForgot
               )}
 
               <button type="submit" disabled={loading} className="btn btn-primary" style={{ width: '100%', marginTop: 'var(--sp-3)' }}>
-                {loading ? 'Signing you in…' : <>Sign in as citizen <ArrowRight size={14} /></>}
+                {loading ? (lang === 'Tamil' ? 'உள்நுழைகிறது…' : 'Signing you in…') : <>{lang === 'Tamil' ? 'குடிமக்களாக உள்நுழைக' : 'Sign in as citizen'} <ArrowRight size={14} /></>}
               </button>
 
               <div className="body-xs" style={{ textAlign: 'center', color: 'var(--ink-muted)', marginTop: 'var(--sp-4)' }}>
-                New to CivicPulse?{' '}
-                <a onClick={onCreateAccount} style={{ color: 'var(--green-500)', fontWeight: 600, cursor: 'pointer' }}>Create an account</a>
+                {lang === 'Tamil' ? 'CivicPulse-க்கு புதியவரா? ' : 'New to CivicPulse? '}
+                <a onClick={onCreateAccount} style={{ color: 'var(--green-500)', fontWeight: 600, cursor: 'pointer' }}>{lang === 'Tamil' ? 'கணக்கு தொடங்கவும்' : 'Create an account'}</a>
               </div>
             </form>
           ) : (
             <form onSubmit={submit} className="card" style={{ padding: 'var(--sp-6)' }}>
               <div className="field">
-                <label className="label">Officer ID</label>
+                <label className="label">{lang === 'Tamil' ? 'அதிகாரி எண் (Officer ID)' : 'Officer ID'}</label>
                 <input className="input mono" type="text" placeholder="OFF001"
                   value={officerId} onChange={(e) => setOfficerId(e.target.value)} required />
               </div>
               <div className="field">
-                <label className="label">Password</label>
+                <label className="label">{lang === 'Tamil' ? 'கடவுச்சொல்' : 'Password'}</label>
                 <div style={{ position: 'relative' }}>
                   <input className="input" type={showPassword ? 'text' : 'password'}
-                    placeholder="Enter password" value={officerPass} onChange={(e) => setOfficerPass(e.target.value)} required />
+                    placeholder={lang === 'Tamil' ? 'கடவுச்சொல்லை உள்ளிடவும்' : 'Enter password'} value={officerPass} onChange={(e) => setOfficerPass(e.target.value)} required />
                   <button type="button" onClick={() => setShowPassword(s => !s)}
                     style={{
                       position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
@@ -319,13 +323,13 @@ export default function LoginScreen({ onLogin, onBack, onCreateAccount, onForgot
               )}
 
               <button type="submit" disabled={loading} className="btn btn-amber" style={{ width: '100%', marginTop: 'var(--sp-3)' }}>
-                {loading ? 'Authenticating…' : <>Open officer portal <ArrowRight size={14} /></>}
+                {loading ? (lang === 'Tamil' ? 'சரிபார்க்கப்படுகிறது…' : 'Authenticating…') : <>{lang === 'Tamil' ? 'அதிகாரி போர்ட்டலைத் திறக்க' : 'Open officer portal'} <ArrowRight size={14} /></>}
               </button>
 
               {/* Quick Preset Selector for Testing All Officer Roles */}
               <div style={{ marginTop: 'var(--sp-4)', padding: '12px', background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: '10px' }}>
                 <div className="body-xs bold" style={{ color: 'var(--amber-400)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Sparkles size={12} /> 1-Click Demo Officer Presets:
+                  <Sparkles size={12} /> {lang === 'Tamil' ? '1-கிளிக் டெமோ அதிகாரி தேர்வுகள்:' : '1-Click Demo Officer Presets:'}
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
                   <button
@@ -334,7 +338,7 @@ export default function LoginScreen({ onLogin, onBack, onCreateAccount, onForgot
                     className="btn btn-secondary btn-sm"
                     style={{ fontSize: '0.72rem', padding: '6px', justifyContent: 'flex-start', border: officerId === 'OFF001' ? '1px solid var(--amber-400)' : undefined }}
                   >
-                    👷 Ward Officer (OFF001)
+                    👷 {lang === 'Tamil' ? 'வார்டு அதிகாரி' : 'Ward Officer'} (OFF001)
                   </button>
                   <button
                     type="button"
@@ -342,7 +346,7 @@ export default function LoginScreen({ onLogin, onBack, onCreateAccount, onForgot
                     className="btn btn-secondary btn-sm"
                     style={{ fontSize: '0.72rem', padding: '6px', justifyContent: 'flex-start', border: officerId === 'ZONAL_CHENNAI' ? '1px solid var(--amber-400)' : undefined }}
                   >
-                    🏢 Zonal Head (ZONAL_CHENNAI)
+                    🏢 {lang === 'Tamil' ? 'மண்டல தலைவர்' : 'Zonal Head'} (ZONAL_CHENNAI)
                   </button>
                   <button
                     type="button"
@@ -350,7 +354,7 @@ export default function LoginScreen({ onLogin, onBack, onCreateAccount, onForgot
                     className="btn btn-secondary btn-sm"
                     style={{ fontSize: '0.72rem', padding: '6px', justifyContent: 'flex-start', border: officerId === 'COLLECTOR_CBE' ? '1px solid var(--amber-400)' : undefined }}
                   >
-                    🏛️ Collector (COLLECTOR_CBE)
+                    🏛️ {lang === 'Tamil' ? 'மாவட்ட ஆட்சியர்' : 'Collector'} (COLLECTOR_CBE)
                   </button>
                   <button
                     type="button"
@@ -358,7 +362,7 @@ export default function LoginScreen({ onLogin, onBack, onCreateAccount, onForgot
                     className="btn btn-secondary btn-sm"
                     style={{ fontSize: '0.72rem', padding: '6px', justifyContent: 'flex-start', border: officerId === 'ADMIN_TN' ? '1px solid var(--amber-400)' : undefined }}
                   >
-                    👑 State Admin (ADMIN_TN)
+                    👑 {lang === 'Tamil' ? 'மாநில நிர்வாகி' : 'State Admin'} (ADMIN_TN)
                   </button>
                 </div>
               </div>
@@ -368,13 +372,13 @@ export default function LoginScreen({ onLogin, onBack, onCreateAccount, onForgot
           {/* Trust row */}
           <div className="flex gap-3" style={{ marginTop: 'var(--sp-6)', justifyContent: 'center', flexWrap: 'wrap' }}>
             <div className="flex items-center gap-2 body-xs" style={{ color: 'var(--ink-muted)' }}>
-              <Globe2 size={12} color="var(--green-500)" /> தமிழ் + English
+              <Globe2 size={12} color="var(--green-500)" /> {lang === 'Tamil' ? 'தமிழ் + ஆங்கிலம்' : 'தமிழ் + English'}
             </div>
             <div className="flex items-center gap-2 body-xs" style={{ color: 'var(--ink-muted)' }}>
-              <FileCheck size={12} color="var(--green-500)" /> RTI compliant
+              <FileCheck size={12} color="var(--green-500)" /> {lang === 'Tamil' ? 'RTI இணக்கம்' : 'RTI compliant'}
             </div>
             <div className="flex items-center gap-2 body-xs" style={{ color: 'var(--ink-muted)' }}>
-              <Activity size={12} color="var(--green-500)" /> 99.9% uptime
+              <Activity size={12} color="var(--green-500)" /> {lang === 'Tamil' ? '99.9% இயக்க நேரம்' : '99.9% uptime'}
             </div>
           </div>
         </div>

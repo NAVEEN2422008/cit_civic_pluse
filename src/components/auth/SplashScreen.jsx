@@ -50,7 +50,7 @@ const CrestLogo = ({ size = 56 }) => (
   </svg>
 );
 
-export default function SplashScreen({ onStart }) {
+export default function SplashScreen({ onStart, lang = 'English' }) {
   const [scrolled, setScrolled] = useState(false);
   const [tickerIndex, setTickerIndex] = useState(0);
 
@@ -107,31 +107,33 @@ export default function SplashScreen({ onStart }) {
           {/* LEFT: Editorial copy */}
           <div>
             <div className="section-label reveal d-0">
-              <span>Issue 01 · Est. 2025</span>
+              <span>{lang === 'Tamil' ? 'இதழ் 01 · நிறுவப்பட்டது 2025' : 'Issue 01 · Est. 2025'}</span>
             </div>
 
             <h1 className="display-xl reveal d-1" style={{ marginBottom: 'var(--sp-5)' }}>
-              Your street.
-              <br />
-              <span className="editorial grad-text-dark">Your say.</span>
+              {lang === 'Tamil' ? (<>உங்கள் தெரு.<br /><span className="editorial grad-text-dark">உங்கள் குரல்.</span></>) : (<>Your street.<br /><span className="editorial grad-text-dark">Your say.</span></>)}
             </h1>
 
             <p className="body-lg reveal d-2" style={{
               color: 'var(--ink-2)', maxWidth: '540px', marginBottom: 'var(--sp-8)',
             }}>
-              Report broken streetlights, overflowing drains, potholes and broken
-              roads in <strong>under a minute</strong> — by voice, photo, or text in
-              Tamil and English. Watch your report move from filing to fixing,
-              in real time, on a live map.
+              {lang === 'Tamil' ? (
+                <>தெரு விளக்கு, வடிகால், குழி ஆகியவற்றை <strong>ஒரு நிமிடத்திற்குள்</strong> புகாரளிக்கவும் — தமிழ் மற்றும் ஆங்கிலத்தில் குரல், புகைப்படம் அல்லது உரை வழியாக.</>
+              ) : (
+                <>Report broken streetlights, overflowing drains, potholes and broken
+                roads in <strong>under a minute</strong> — by voice, photo, or text in
+                Tamil and English. Watch your report move from filing to fixing,
+                in real time, on a live map.</>
+              )}
             </p>
 
             <div className="reveal d-3" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: 'var(--sp-8)' }}>
               <button onClick={onStart} className="btn btn-primary btn-lg">
-                <Sparkles size={16} /> Report an issue
+                <Sparkles size={16} /> {lang === 'Tamil' ? 'புகாரளி' : 'Report an issue'}
                 <ArrowRight size={16} />
               </button>
               <a href="#how" className="btn btn-secondary btn-lg">
-                <Eye size={16} /> See how it works
+                <Eye size={16} /> {lang === 'Tamil' ? 'எப்படி வேலை செய்கிறது' : 'See how it works'}
               </a>
             </div>
 
@@ -143,7 +145,7 @@ export default function SplashScreen({ onStart }) {
             }}>
               <div className="flex items-center gap-2" style={{ color: 'var(--ink-3)' }}>
                 <ShieldCheck size={16} color="var(--green-500)" />
-                <span className="body-xs bold">Govt. of Tamil Nadu</span>
+                <span className="body-xs bold">{lang === 'Tamil' ? 'தமிழ்நாடு அரசு' : 'Govt. of Tamil Nadu'}</span>
               </div>
               <div className="flex items-center gap-2" style={{ color: 'var(--ink-3)' }}>
                 <Languages size={16} color="var(--green-500)" />

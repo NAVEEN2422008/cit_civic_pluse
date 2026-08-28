@@ -281,7 +281,7 @@ export default function App() {
         {!isAuthenticated || authStep !== 'app' ? (
           <>
             {authStep === 'splash' && (
-              <SplashScreen onStart={() => setAuthStep('login')} />
+              <SplashScreen onStart={() => setAuthStep('login')} lang={lang} />
             )}
 
             {authStep === 'language' && (
@@ -324,6 +324,7 @@ export default function App() {
 
             {authStep === 'login' && (
               <LoginScreen
+                lang={lang}
                 onLogin={async (data) => {
                   let result;
                   let firebaseErr = null;

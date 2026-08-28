@@ -289,7 +289,7 @@ export const apiService = {
     const headers = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
     try {
-      const res = await fetch(`${API_BASE_URL}/dashboard/summary`, { headers });
+      const res = await fetch(`${API_BASE_URL}/citizen/dashboard-summary`, { headers });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Dashboard fetch failed');
       return data;
