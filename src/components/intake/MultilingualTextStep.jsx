@@ -123,7 +123,7 @@ export default function MultilingualTextStep({
             }
 
             let displayText = transcript;
-            // 4. Gemini AI / Sarvam AI understands the problem in English for accurate departmental assignment
+            // 4. Gemini AI / Sarvam AI translates regional voice into English for the generated card downside and officer routing
             if (transcript && language !== 'English') {
               try {
                 displayText = await translateText(transcript, language, 'English');
@@ -147,8 +147,9 @@ export default function MultilingualTextStep({
               confidence: geminiConf,
             });
 
+            // Put regional text (e.g. Tamil) in the textbox, while translated English lives in the generated card downside
             setDescription(prev => {
-              const appended = prev ? `${prev}\n${displayText}` : displayText;
+              const appended = prev ? `${prev}\n${transcript}` : transcript;
               return appended;
             });
           } catch {
