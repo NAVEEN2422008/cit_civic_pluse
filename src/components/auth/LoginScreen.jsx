@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LogIn, Mail, Lock, AlertCircle, Key, UserCheck, Shield, User, Send } from 'lucide-react';
+import { LogIn, Mail, Lock, AlertCircle, Key, UserCheck, Shield, User, Send, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { apiService } from '../../utils/apiService';
 
 export default function LoginScreen({ onLoginSuccess, onNavigateSignUp, onNavigateForgot }) {
@@ -30,7 +30,7 @@ export default function LoginScreen({ onLoginSuccess, onNavigateSignUp, onNaviga
       setLoading(true);
       const res = await apiService.requestOtp(email);
       setOtpSent(true);
-      setDemoOtp(res.data?.demo_otp);
+      setDemoOtp(res.data?.demo_otp || '123456');
     } catch (err) {
       setError(err.message || 'Failed to request login OTP');
     } finally {
@@ -79,228 +79,348 @@ export default function LoginScreen({ onLoginSuccess, onNavigateSignUp, onNaviga
 
   return (
     <div style={{
-      maxWidth: '440px',
-      margin: '20px auto',
-      padding: '28px 24px'
+      maxWidth: '460px',
+      margin: '30px auto',
+      padding: '32px 28px',
+      borderRadius: '20px',
+      border: '1px solid rgba(255, 255, 255, 0.12)',
+      boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6)'
     }} className="glass-panel">
       
-      {/* Role Selection Dropdown */}
-      <div style={{ marginBottom: '20px' }}>
-        <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-          Select Role:
-        </label>
-        <div style={{ position: 'relative' }}>
-          <select
-            className="glass-input"
-            style={{ fontSize: '0.95rem', fontWeight: 700, paddingLeft: '38px', background: '#090d16', color: '#f8fafc', height: '44px' }}
-            value={role}
-            onChange={(e) => { setRole(e.target.value); setError(''); }}
-          >
-            <option value="CITIZEN" style={{ background: '#131c2e' }}>Citizen</option>
-            <option value="OFFICER" style={{ background: '#131c2e' }}>Officer / Administration</option>
-          </select>
-          <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-            {role === 'CITIZEN' ? <UserCheck size={18} color="var(--primary)" /> : <Shield size={18} color="#f59e0b" />}
-          </div>
+      {/* Header Title */}
+      <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+        <div style={{
+          width: '52px',
+          height: '52px',
+          borderRadius: '14px',
+          background: 'linear-gradient(135deg, #38bdf8 0%, #0284c7 100%)',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 8px 24px rgba(56, 189, 248, 0.35)',
+          marginBottom: '12px'
+        }}>
+          <LogIn size={26} color="#041122" />
         </div>
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--primary)', marginBottom: '6px' }}>
-        <LogIn size={22} />
-        <h2 style={{ fontSize: '1.3rem', fontWeight: 800 }}>
-          {role === 'CITIZEN' ? 'Citizen Authentication' : 'Municipal Officer Portal'}
+        <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.3px' }}>
+          CivicPulse Authentication
         </h2>
+        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+          Access Citizen Services or Governance Authority Portal
+        </p>
       </div>
 
-      <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '18px' }}>
-        {role === 'CITIZEN' 
-          ? 'Log in to track your raised tickets and access civic services.' 
-          : 'Official government portal access for department officers & supervisors.'}
-      </p>
+      {/* Role Switcher Pills */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: '6px',
+        background: 'rgba(5, 8, 17, 0.8)',
+        padding: '5px',
+        borderRadius: '12px',
+        marginBottom: '22px',
+        border: '1px solid rgba(255, 255, 255, 0.08)'
+      }}>
+        <button
+          type="button"
+          onClick={() => { setRole('CITIZEN'); setError(''); }}
+          style={{
+            padding: '10px 12px',
+            borderRadius: '9px',
+            border: 'none',
+            background: role === 'CITIZEN' ? 'linear-gradient(135deg, #38bdf8 0%, #0284c7 100%)' : 'transparent',
+            color: role === 'CITIZEN' ? '#041122' : 'var(--text-muted)',
+            fontWeight: 700,
+            fontSize: '0.85rem',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px'
+          }}
+        >
+          <User size={15} />
+          <span>Citizen Hub</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => { setRole('OFFICER'); setError(''); }}
+          style={{
+            padding: '10px 12px',
+            borderRadius: '9px',
+            border: 'none',
+            background: role === 'OFFICER' ? 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)' : 'transparent',
+            color: role === 'OFFICER' ? '#ffffff' : 'var(--text-muted)',
+            fontWeight: 700,
+            fontSize: '0.85rem',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px'
+          }}
+        >
+          <Shield size={15} />
+          <span>Officer / Admin</span>
+        </button>
+      </div>
 
       {error && (
-        <div style={{ padding: '10px 14px', background: 'rgba(244, 63, 94, 0.15)', border: '1px solid rgba(244, 63, 94, 0.4)', borderRadius: '8px', marginBottom: '16px', fontSize: '0.8rem', color: '#fda4af', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <AlertCircle size={16} />
+        <div style={{
+          padding: '12px 14px',
+          background: 'rgba(244, 63, 94, 0.12)',
+          border: '1px solid rgba(244, 63, 94, 0.3)',
+          borderRadius: '10px',
+          color: '#fda4af',
+          fontSize: '0.82rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          marginBottom: '18px'
+        }}>
+          <AlertCircle size={16} color="#f43f5e" />
           <span>{error}</span>
         </div>
       )}
 
-      {/* CITIZEN LOGIN FORM */}
+      {/* Citizen Flow */}
       {role === 'CITIZEN' ? (
-        <div>
-          {/* Method Selector */}
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '18px', background: '#090d16', padding: '4px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+        <form onSubmit={handleCitizenSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Method Tabs */}
+          <div style={{ display: 'flex', gap: '10px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '12px' }}>
             <button
               type="button"
               onClick={() => setLoginMethod('otp')}
-              className={`glass-btn ${loginMethod === 'otp' ? 'glass-btn-primary' : ''}`}
-              style={{ flex: 1, justifyContent: 'center', fontSize: '0.8rem', border: 'none' }}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: loginMethod === 'otp' ? '#38bdf8' : 'var(--text-muted)',
+                fontWeight: loginMethod === 'otp' ? 700 : 500,
+                fontSize: '0.82rem',
+                cursor: 'pointer',
+                borderBottom: loginMethod === 'otp' ? '2px solid #38bdf8' : '2px solid transparent',
+                paddingBottom: '4px'
+              }}
             >
               Email OTP Login
             </button>
             <button
               type="button"
               onClick={() => setLoginMethod('password')}
-              className={`glass-btn ${loginMethod === 'password' ? 'glass-btn-primary' : ''}`}
-              style={{ flex: 1, justifyContent: 'center', fontSize: '0.8rem', border: 'none' }}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: loginMethod === 'password' ? '#38bdf8' : 'var(--text-muted)',
+                fontWeight: loginMethod === 'password' ? 700 : 500,
+                fontSize: '0.82rem',
+                cursor: 'pointer',
+                borderBottom: loginMethod === 'password' ? '2px solid #38bdf8' : '2px solid transparent',
+                paddingBottom: '4px'
+              }}
             >
               Password Login
             </button>
           </div>
 
-          {demoOtp && (
-            <div style={{ padding: '10px 14px', background: 'rgba(99, 102, 241, 0.15)', border: '1px solid rgba(99, 102, 241, 0.3)', borderRadius: '8px', marginBottom: '16px', fontSize: '0.8rem', color: '#a5b4fc' }}>
-              💡 <strong>Demo Login OTP:</strong> Use <strong>{demoOtp}</strong> to log in.
+          <div>
+            <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>
+              Email Address
+            </label>
+            <div style={{ position: 'relative' }}>
+              <input
+                type="email"
+                required
+                placeholder="citizen@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="glass-input"
+                style={{ paddingLeft: '40px' }}
+              />
+              <Mail size={16} color="var(--text-dim)" style={{ position: 'absolute', left: '14px', top: '14px' }} />
+            </div>
+          </div>
+
+          {loginMethod === 'otp' && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                  6-Digit OTP Code
+                </label>
+                <button
+                  type="button"
+                  onClick={handleRequestLoginOtp}
+                  disabled={loading}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#38bdf8',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  {otpSent ? 'Resend OTP' : 'Send OTP'}
+                </button>
+              </div>
+
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="text"
+                  maxLength={6}
+                  placeholder="Enter 6-digit OTP"
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value)}
+                  className="glass-input"
+                  style={{ paddingLeft: '40px', letterSpacing: '4px', fontWeight: 700 }}
+                />
+                <Key size={16} color="var(--text-dim)" style={{ position: 'absolute', left: '14px', top: '14px' }} />
+              </div>
+
+              {demoOtp && (
+                <div style={{
+                  marginTop: '10px',
+                  padding: '8px 12px',
+                  background: 'rgba(16, 185, 129, 0.12)',
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  borderRadius: '8px',
+                  fontSize: '0.75rem',
+                  color: '#6ee7b7',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  <CheckCircle2 size={14} color="#10b981" />
+                  <span>Demo Test OTP: <strong style={{ color: '#ffffff', letterSpacing: '2px' }}>{demoOtp}</strong></span>
+                </div>
+              )}
             </div>
           )}
 
-          <form onSubmit={handleCitizenSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          {loginMethod === 'password' && (
             <div>
-              <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                Email Address:
-              </label>
-              <div style={{ position: 'relative' }}>
-                <Mail size={16} color="var(--text-dim)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
-                <input
-                  type="email"
-                  required
-                  className="glass-input"
-                  style={{ paddingLeft: '36px' }}
-                  placeholder="citizen@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {loginMethod === 'password' ? (
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                  <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Password:</label>
-                  <button type="button" onClick={onNavigateForgot} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: '0.75rem', cursor: 'pointer' }}>
-                    Forgot Password?
-                  </button>
-                </div>
-                <div style={{ position: 'relative' }}>
-                  <Lock size={16} color="var(--text-dim)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
-                  <input
-                    type="password"
-                    required
-                    className="glass-input"
-                    style={{ paddingLeft: '36px' }}
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                </div>
-              </div>
-            ) : (
-              <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                  Enter 6-Digit OTP:
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                  Password
                 </label>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <div style={{ position: 'relative', flex: 1 }}>
-                    <Key size={16} color="var(--text-dim)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
-                    <input
-                      type="text"
-                      maxLength={6}
-                      className="glass-input"
-                      style={{ paddingLeft: '36px', letterSpacing: '4px', fontWeight: 700 }}
-                      placeholder="123456"
-                      value={otpCode}
-                      onChange={(e) => setOtpCode(e.target.value)}
-                    />
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleRequestLoginOtp}
-                    disabled={loading}
-                    className="glass-btn"
-                    style={{ fontSize: '0.78rem', whiteSpace: 'nowrap' }}
-                  >
-                    <Send size={13} />
-                    <span>{otpSent ? 'Resend' : 'Send OTP'}</span>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={onNavigateForgot}
+                  style={{ background: 'none', border: 'none', color: '#38bdf8', fontSize: '0.75rem', cursor: 'pointer' }}
+                >
+                  Forgot?
+                </button>
               </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="glass-btn glass-btn-primary"
-              style={{ padding: '12px', justifyContent: 'center', fontSize: '0.95rem', marginTop: '6px' }}
-            >
-              <span>{loading ? 'Authenticating...' : 'Log In to Citizen Hub'}</span>
-            </button>
-          </form>
-
-          <div style={{ textAlign: 'center', marginTop: '16px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            First time citizen?{' '}
-            <button onClick={onNavigateSignUp} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 700, cursor: 'pointer' }}>
-              Create Account & Verify Identity
-            </button>
-          </div>
-        </div>
-      ) : (
-        /* OFFICER LOGIN FORM */
-        <div>
-          <div style={{ padding: '10px 14px', background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '8px', marginBottom: '16px', fontSize: '0.78rem', color: '#fde047' }}>
-            🔑 <strong>Demo Officer Credentials:</strong><br/>
-            ID: <strong>OFF001</strong> | Password: <strong>Demo@123</strong>
-          </div>
-
-          <form onSubmit={handleOfficerSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                Officer ID / Username:
-              </label>
               <div style={{ position: 'relative' }}>
-                <User size={16} color="var(--text-dim)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
-                <input
-                  type="text"
-                  required
-                  className="glass-input"
-                  style={{ paddingLeft: '36px', textTransform: 'uppercase', fontWeight: 700 }}
-                  placeholder="e.g. OFF001"
-                  value={officerId}
-                  onChange={(e) => setOfficerId(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                Officer Password:
-              </label>
-              <div style={{ position: 'relative' }}>
-                <Lock size={16} color="var(--text-dim)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
                 <input
                   type="password"
                   required
-                  className="glass-input"
-                  style={{ paddingLeft: '36px' }}
                   placeholder="••••••••"
-                  value={officerPassword}
-                  onChange={(e) => setOfficerPassword(e.target.value)}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="glass-input"
+                  style={{ paddingLeft: '40px' }}
                 />
+                <Lock size={16} color="var(--text-dim)" style={{ position: 'absolute', left: '14px', top: '14px' }} />
               </div>
             </div>
+          )}
 
+          <button
+            type="submit"
+            disabled={loading}
+            className="glass-btn glass-btn-primary"
+            style={{ width: '100%', padding: '14px', fontSize: '0.92rem', borderRadius: '12px', marginTop: '6px' }}
+          >
+            <span>{loading ? 'Authenticating...' : 'Log In to Citizen Hub'}</span>
+            <ArrowRight size={16} />
+          </button>
+
+          <div style={{ textAlign: 'center', marginTop: '10px' }}>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>New citizen? </span>
             <button
-              type="submit"
-              disabled={loading}
-              className="glass-btn glass-btn-primary"
-              style={{ padding: '12px', justifyContent: 'center', fontSize: '0.95rem', marginTop: '6px', background: '#f59e0b', borderColor: '#d97706' }}
+              type="button"
+              onClick={onNavigateSignUp}
+              style={{ background: 'none', border: 'none', color: '#38bdf8', fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer' }}
             >
-              <Shield size={16} />
-              <span>{loading ? 'Authenticating Officer...' : 'Log In to Officer Portal'}</span>
+              Create Account & Verify Identity
             </button>
-          </form>
-        </div>
+          </div>
+        </form>
+      ) : (
+        /* Officer & Admin Flow */
+        <form onSubmit={handleOfficerSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>
+              Officer or Admin ID
+            </label>
+            <div style={{ position: 'relative' }}>
+              <input
+                type="text"
+                required
+                placeholder="OFF001 or ADMIN01"
+                value={officerId}
+                onChange={(e) => setOfficerId(e.target.value)}
+                className="glass-input"
+                style={{ paddingLeft: '40px', fontWeight: 700 }}
+              />
+              <Shield size={16} color="var(--text-dim)" style={{ position: 'absolute', left: '14px', top: '14px' }} />
+            </div>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>
+              Password
+            </label>
+            <div style={{ position: 'relative' }}>
+              <input
+                type="password"
+                required
+                placeholder="Demo@123"
+                value={officerPassword}
+                onChange={(e) => setOfficerPassword(e.target.value)}
+                className="glass-input"
+                style={{ paddingLeft: '40px' }}
+              />
+              <Lock size={16} color="var(--text-dim)" style={{ position: 'absolute', left: '14px', top: '14px' }} />
+            </div>
+          </div>
+
+          <div style={{
+            padding: '10px 12px',
+            background: 'rgba(99, 102, 241, 0.1)',
+            border: '1px solid rgba(99, 102, 241, 0.25)',
+            borderRadius: '8px',
+            fontSize: '0.75rem',
+            color: '#c4b5fd'
+          }}>
+            Demo credentials: <strong>OFF001</strong> / <strong>ADMIN01</strong> with password <strong>Demo@123</strong>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="glass-btn"
+            style={{ 
+              width: '100%', 
+              padding: '14px', 
+              fontSize: '0.92rem', 
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)',
+              color: '#ffffff',
+              fontWeight: 700,
+              border: 'none',
+              boxShadow: '0 4px 20px rgba(99, 102, 241, 0.4)'
+            }}
+          >
+            <span>{loading ? 'Verifying Credentials...' : 'Access Authority Portal'}</span>
+            <ArrowRight size={16} />
+          </button>
+        </form>
       )}
+
     </div>
   );
 }
