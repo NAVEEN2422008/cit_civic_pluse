@@ -310,7 +310,7 @@ export async function transcribeAudio(audioBlob, sourceLang = 'Tamil', knownTran
     return inferFromText(knownTranscript, sourceLang);
   }
 
-  const apiKey = import.meta.env.VITE_SARVAM_API_KEY;
+  const apiKey = import.meta.env.VITE_SARVAM_API_KEY || import.meta.env.SARVAM_API_KEY;
   if (apiKey && audioBlob) {
     try {
       const form = new FormData();
@@ -319,7 +319,10 @@ export async function transcribeAudio(audioBlob, sourceLang = 'Tamil', knownTran
       form.append('model', 'saarika:v2');
       const res = await fetch(`${SARVAM_BASE}/speech-to-text`, {
         method: 'POST',
-        headers: { 'API-Subscription-Key': apiKey },
+        headers: {
+          'api-subscription-key': apiKey,
+          'API-Subscription-Key': apiKey,
+        },
         body: form,
       });
       if (res.ok) {

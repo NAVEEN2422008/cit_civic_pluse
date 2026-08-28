@@ -58,26 +58,48 @@ export default function MultilingualTextStep({
 
           setIsProcessingSarvam(true);
           try {
-            // Try Gemini STT first, then local fallback
             let transcript = '';
             let geminiConf = null;
-            try {
-              const g = await transcribeWithGemini(base64Data, 'audio/wav', language);
-              if (g?.transcript) { transcript = g.transcript; geminiConf = g.confidence; }
-            } catch {}
+
+            // 1. If language is Tamil (or user speaks Tamil), prioritize Sarvam AI Speech-to-Text
+            if (language === 'Tamil' || language === 'ta') {
+              try {
+                const sarvamRes = await transcribeAudio(audioBlob, 'Tamil', '');
+                if (sarvamRes?.transcript) {
+                  transcript = sarvamRes.transcript;
+                  geminiConf = 0.95;
+                }
+              } catch (sarvamErr) {
+                console.warn('Sarvam Tamil STT error, falling back to Gemini:', sarvamErr);
+              }
+            }
+
+            // 2. Fall back to Gemini Multimodal STT if Sarvam is not configured or fails
+            if (!transcript) {
+              try {
+                const g = await transcribeWithGemini(base64Data, 'audio/wav', language);
+                if (g?.transcript) { transcript = g.transcript; geminiConf = g.confidence; }
+              } catch {}
+            }
+
+            // 3. Fall back to general transcribeAudio
             if (!transcript) {
               const t = await transcribeAudio(audioBlob, language, '');
               transcript = t?.transcript || '';
             }
 
             let displayText = transcript;
-            // Translate to English for the AI analyzer
+            // Translate Tamil to English for the AI categorization analyzer
             if (transcript && language !== 'English') {
               try {
-                const g = await translateWithGemini(transcript, language, 'English');
-                displayText = g?.text || await translateText(transcript, language, 'English');
-              } catch {
                 displayText = await translateText(transcript, language, 'English');
+              } catch {
+                try {
+                  const g = await translateWithGemini(transcript, language, 'English');
+                  displayText = g?.text || transcript;
+                } catch {
+                  displayText = transcript;
+                }
               }
             }
 
