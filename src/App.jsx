@@ -227,7 +227,31 @@ export default function App() {
           </div>
         </div>
 
-        <div className="cp-header-actions">
+        <div className="cp-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* Universal Language Switcher Button */}
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={() => setLang(prev => prev === 'Tamil' ? 'English' : 'Tamil')}
+              className="btn btn-secondary btn-sm"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '6px 12px',
+                fontWeight: 700,
+                fontSize: '0.8rem',
+                border: '1px solid rgba(56, 189, 248, 0.4)',
+                background: 'rgba(15, 23, 42, 0.8)',
+                color: '#38bdf8'
+              }}
+              title="Click to toggle language (English / தமிழ்)"
+            >
+              <span style={{ fontSize: '0.95rem' }}>🌐</span>
+              <span>{lang === 'Tamil' ? 'தமிழ்' : 'English'}</span>
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>⇄ {lang === 'Tamil' ? 'EN' : 'தமிழ்'}</span>
+            </button>
+          </div>
+
           {isAuthenticated && userProfile ? (
             <>
               <span className={`badge ${activeRole === 'CITIZEN' ? 'badge-green' : activeRole === 'OFFICER' ? 'badge-amber' : 'badge-dark'}`}>
