@@ -61,20 +61,18 @@ export default function MultilingualTextStep({
             let transcript = '';
             let geminiConf = null;
 
-            // 1. If language is Tamil (or user speaks Tamil), prioritize Sarvam AI Speech-to-Text
-            if (language === 'Tamil' || language === 'ta') {
-              try {
-                const sarvamRes = await transcribeAudio(audioBlob, 'Tamil', '');
-                if (sarvamRes?.transcript) {
-                  transcript = sarvamRes.transcript;
-                  geminiConf = 0.95;
-                }
-              } catch (sarvamErr) {
-                console.warn('Sarvam Tamil STT error, falling back to Gemini:', sarvamErr);
+            // 1. First: ALWAYS use Sarvam AI (saarika:v2) for voice-to-text transcription across all languages
+            try {
+              const sarvamRes = await transcribeAudio(audioBlob, language, '');
+              if (sarvamRes?.transcript) {
+                transcript = sarvamRes.transcript;
+                geminiConf = 0.95;
               }
+            } catch (sarvamErr) {
+              console.warn('[Sarvam AI] STT failed or unconfigured, falling back to Gemini Multimodal STT:', sarvamErr);
             }
 
-            // 2. Fall back to Gemini Multimodal STT if Sarvam is not configured or fails
+            // 2. Second: If Sarvam is unconfigured or offline, fall back to Gemini Audio STT
             if (!transcript) {
               try {
                 const g = await transcribeWithGemini(base64Data, 'audio/wav', language);
@@ -82,14 +80,14 @@ export default function MultilingualTextStep({
               } catch {}
             }
 
-            // 3. Fall back to general transcribeAudio
+            // 3. Fall back to local Indic transcription classifier
             if (!transcript) {
               const t = await transcribeAudio(audioBlob, language, '');
               transcript = t?.transcript || '';
             }
 
             let displayText = transcript;
-            // Translate Tamil to English for the AI categorization analyzer
+            // 4. Gemini AI / Sarvam AI understands the problem in English for accurate departmental assignment
             if (transcript && language !== 'English') {
               try {
                 displayText = await translateText(transcript, language, 'English');
