@@ -103,6 +103,8 @@ export default function CitizenPortal({ lang, complaints = [], setComplaints, us
     }
   };
 
+  const isTa = lang === 'Tamil' || lang === 'ta';
+
   return (
     <div style={{ maxWidth: '1240px', margin: '0 auto', paddingBottom: '50px' }}>
       
@@ -133,10 +135,12 @@ export default function CitizenPortal({ lang, complaints = [], setComplaints, us
           </div>
           <div>
             <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.3px' }}>
-              Citizen Civic Hub
+              {isTa ? 'குடிமக்கள் மையக்கோப்பு (Civic Hub)' : 'Citizen Civic Hub'}
             </h1>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              Real-time complaint timeline tracking, community voting & resolution verification
+              {isTa
+                ? 'நேரடி புகார் காலவரிசை, சமூக ஆதரவு & தீர்வு சரிபார்ப்பு'
+                : 'Real-time complaint timeline tracking, community voting & resolution verification'}
             </p>
           </div>
         </div>
@@ -160,7 +164,7 @@ export default function CitizenPortal({ lang, complaints = [], setComplaints, us
             }}
           >
             <Activity size={15} />
-            <span>Complaint Records</span>
+            <span>{isTa ? 'புகார் பதிவுகள்' : 'Complaint Records'}</span>
           </button>
 
           <button
@@ -181,7 +185,7 @@ export default function CitizenPortal({ lang, complaints = [], setComplaints, us
             }}
           >
             <Sparkles size={15} />
-            <span>Report Issue</span>
+            <span>{isTa ? 'புகார் அளி' : 'Report Issue'}</span>
           </button>
 
           <button
@@ -202,7 +206,7 @@ export default function CitizenPortal({ lang, complaints = [], setComplaints, us
             }}
           >
             <Globe size={15} />
-            <span>Live Satellite Map</span>
+            <span>{isTa ? 'நேரடி வரைபடம்' : 'Live Heatmap'}</span>
           </button>
         </div>
       </div>

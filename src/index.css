@@ -517,18 +517,72 @@ textarea.glass-input{resize:vertical;min-height:100px;line-height:1.6;}
 .badge-medium{background:var(--amber-400);color:var(--ink);}
 .badge-low{background:var(--green-500);color:#fff;}
 
-/* App shell */
-.app-main{flex:1;width:100%;}
-.app-shell{display:flex;flex-direction:column;min-height:100vh;}
+/* === DEDICATED PHONE / MOBILE OPTIMIZATIONS === */
+@media (max-width: 640px) {
+  :root {
+    --sp-6: 16px;
+    --sp-8: 20px;
+    --sp-10: 24px;
+    --nav-h: 68px;
+  }
+  
+  .cp-header {
+    padding: 10px 14px !important;
+  }
+  
+  .cp-header-title p {
+    display: none; /* Hide subtitle on small phone screens */
+  }
 
-/* Officer sidebar layout */
-.officer-shell{display:flex;min-height:100vh;}
-.officer-sidebar{width:240px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);padding:var(--sp-6) 0;position:sticky;top:0;height:100vh;overflow-y:auto;}
-.officer-main{flex:1;min-width:0;padding:var(--sp-6);}
-@media(max-width:900px){.officer-sidebar{display:none;}.officer-main{padding:var(--sp-4);}}
+  .cp-header-brand svg {
+    width: 28px;
+    height: 28px;
+  }
 
-/* Notification badge */
-.notif-badge{position:absolute;top:-4px;right:-4px;width:18px;height:18px;border-radius:50%;background:var(--danger);color:#fff;font-size:.6rem;font-weight:800;display:flex;align-items:center;justify-content:center;border:2px solid var(--bg);}
+  .grid-4, .grid-3, .grid-2 {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .bottom-nav {
+    left: 8px !important;
+    right: 8px !important;
+    bottom: 12px !important;
+    transform: none !important;
+    max-width: calc(100vw - 16px) !important;
+    padding: 6px 10px !important;
+  }
+
+  .bottom-nav-item {
+    font-size: 0.68rem !important;
+    padding: 6px 4px !important;
+  }
+
+  .bottom-nav-report {
+    padding: 10px 14px !important;
+    font-size: 0.76rem !important;
+    transform: translateY(-12px) !important;
+  }
+
+  .glass-panel {
+    padding: 14px 16px !important;
+    border-radius: 14px !important;
+  }
+
+  .modal-container {
+    padding: 18px 14px !important;
+    margin: 10px !important;
+    max-height: 92vh !important;
+  }
+
+  .display-lg {
+    font-size: 1.65rem !important;
+  }
+
+  .display-md {
+    font-size: 1.35rem !important;
+  }
+}
 
 /* === REDUCED MOTION === */
 @media(prefers-reduced-motion:reduce){
