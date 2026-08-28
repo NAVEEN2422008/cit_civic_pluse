@@ -284,45 +284,80 @@ export default function MultilingualTextStep({
         </div>
       )}
 
-      {/* RECORDED AUDIO PLAYBACK & CONTROLS */}
+      {/* RECORDED AUDIO PLAYBACK & DUAL TRANSCRIPT/TRANSLATION DISPLAY */}
       {voiceData && !isRecording && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#090d16', border: '1px solid rgba(255, 255, 255, 0.1)', padding: '10px 14px', borderRadius: '8px', flexWrap: 'wrap', gap: '10px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button
-              type="button"
-              onClick={togglePlay}
-              className="glass-btn glass-btn-primary"
-              style={{ padding: '6px 12px', fontSize: '0.78rem' }}
-            >
-              {isPlaying ? <Pause size={14} /> : <Play size={14} />}
-              <span>{isPlaying ? (language === 'Tamil' ? 'நிறுத்து' : 'Pause') : (language === 'Tamil' ? 'பதிவை கேள்' : 'Play Recording')}</span>
-            </button>
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-              ({voiceData.duration || 0}s {language === 'Tamil' ? 'ஒலி பதிவு' : 'Audio Recorded'})
-            </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: '#090d16', border: '1px solid rgba(255, 255, 255, 0.1)', padding: '14px 16px', borderRadius: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={togglePlay}
+                className="glass-btn glass-btn-primary"
+                style={{ padding: '6px 12px', fontSize: '0.78rem' }}
+              >
+                {isPlaying ? <Pause size={14} /> : <Play size={14} />}
+                <span>{isPlaying ? (language === 'Tamil' ? 'நிறுத்து' : 'Pause') : (language === 'Tamil' ? 'பதிவை கேள்' : 'Play Recording')}</span>
+              </button>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                ({voiceData.duration || 0}s {language === 'Tamil' ? 'ஒலி பதிவு' : 'Audio Recorded'})
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={startRecording}
+                className="glass-btn"
+                style={{ fontSize: '0.75rem', padding: '4px 10px' }}
+              >
+                <RotateCcw size={13} />
+                <span>{language === 'Tamil' ? 'மீண்டும் பதிவு' : 'Record Again'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={deleteVoice}
+                className="glass-btn"
+                style={{ fontSize: '0.75rem', padding: '4px 10px', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.3)' }}
+              >
+                <Trash2 size={13} />
+                <span>{language === 'Tamil' ? 'நீக்கு' : 'Delete'}</span>
+              </button>
+            </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button
-              type="button"
-              onClick={startRecording}
-              className="glass-btn"
-              style={{ fontSize: '0.75rem', padding: '4px 10px' }}
-            >
-              <RotateCcw size={13} />
-              <span>{language === 'Tamil' ? 'மீண்டும் பதிவு' : 'Record Again'}</span>
-            </button>
+          {/* DOWNSIDE: DUAL REGIONAL TRANSCRIPT & ENGLISH TRANSLATION CARDS */}
+          {voiceData.transcript && (
+            <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {/* Native Voice Transcript */}
+              <div style={{ background: 'rgba(15, 23, 42, 0.7)', border: '1px solid rgba(148, 163, 184, 0.15)', borderRadius: '8px', padding: '10px 12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    🎙️ {language} Voice Transcript (Sarvam AI):
+                  </span>
+                  <span style={{ fontSize: '0.65rem', color: '#10b981', fontWeight: 600 }}>⚡ Auto-Captured</span>
+                </div>
+                <div style={{ fontSize: '0.84rem', color: '#f8fafc', lineHeight: 1.4 }}>
+                  "{voiceData.transcript}"
+                </div>
+              </div>
 
-            <button
-              type="button"
-              onClick={deleteVoice}
-              className="glass-btn"
-              style={{ fontSize: '0.75rem', padding: '4px 10px', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.3)' }}
-            >
-              <Trash2 size={13} />
-              <span>{language === 'Tamil' ? 'நீக்கு' : 'Delete'}</span>
-            </button>
-          </div>
+              {/* English Translation Downside */}
+              {language !== 'English' && voiceData.translated && (
+                <div style={{ background: 'rgba(12, 74, 62, 0.15)', border: '1px solid rgba(46, 158, 122, 0.35)', borderRadius: '8px', padding: '10px 12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#2e9e7a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      🌐 English Translation (Gemini AI for Department Routing):
+                    </span>
+                    <span style={{ fontSize: '0.65rem', color: '#2e9e7a', fontWeight: 600 }}>✓ Verified</span>
+                  </div>
+                  <div style={{ fontSize: '0.84rem', color: '#e6f0ed', fontWeight: 500, lineHeight: 1.4 }}>
+                    "{voiceData.translated}"
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
