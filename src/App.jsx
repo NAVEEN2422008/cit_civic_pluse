@@ -124,14 +124,16 @@ export default function App() {
         const { collection, onSnapshot, orderBy, query, where } = await import('firebase/firestore');
         if (!fb.db) return;
         const issuesRef = collection(fb.db, 'issues');
-        let q = query(issuesRef, orderBy('created_at', 'desc'));
+        let q = query(issuesRef);
         if (userProfile?.email) {
-          q = query(issuesRef, where('reporterEmail', '==', userProfile.email), orderBy('created_at', 'desc'));
+          q = query(issuesRef, where('reporterEmail', '==', userProfile.email));
         }
         unsubscribe = onSnapshot(q,
           (snap) => {
             if (cancelled) return;
-            const fromFs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            let fromFs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            // Client-side sort by created_at to avoid requiring Firebase composite index
+            fromFs.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
             if (fromFs.length) {
               setComplaints(prev => {
                 const map = new Map();
