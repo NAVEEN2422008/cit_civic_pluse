@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   LayoutGrid, ClipboardList, Map as MapIcon, BarChart3, LogOut,
   AlertTriangle, Clock, CheckCircle2, TrendingUp, MapPin,
   ChevronRight, Search, RefreshCw, User, X, Wrench,
-  ShieldCheck, Award, Flame, MessageSquare, Building2, ListChecks, Users as UsersIcon
+  ShieldCheck, Award, Flame, MessageSquare, Building2, ListChecks, Users as UsersIcon,
+  Layers, Compass, ZoomIn, ZoomOut
 } from 'lucide-react';
 import { apiService } from '../utils/apiService';
 import { routeIssue } from '../utils/routingEngine';
@@ -342,18 +343,10 @@ export default function OfficerPortal({ officer = {}, onLogout, onOpenGovernance
 
         {/* ============ MY WARD MAP ============ */}
         {tab === 'ward' && (
-          <div className="card" style={{ padding: 0, overflow: 'hidden', height: 'calc(100vh - 260px)' }}>
-            <div style={{ height: '100%', background: 'var(--ink)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-inverse)', position: 'relative' }}>
-              <KolamSVG size={420} opacity={0.05} color="#fbd77a" />
-              <div style={{ position: 'relative', zIndex: 2, textAlign: 'center', padding: 'var(--sp-6)' }}>
-                <MapPin size={40} color="#fbd77a" style={{ marginBottom: 12 }} />
-                <h3 className="display-md" style={{ color: 'var(--ink-inverse)', marginBottom: 8 }}>Your ward's live map</h3>
-                <p className="body-sm" style={{ color: 'var(--ink-faint)', maxWidth: 380 }}>
-                  All {issues.length} active reports in your jurisdiction, pinned with severity heat and status colours.
-                </p>
-              </div>
-            </div>
-          </div>
+          <OfficerWardMap
+            issues={issues}
+            officer={officer}
+          />
         )}
 
         {/* ============ MY PERFORMANCE ============ */}
@@ -579,6 +572,261 @@ function AssignView({ issues }) {
             </div>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+/* ================= OFFICER WARD MAP (real Leaflet map) ================= */
+
+function OfficerWardMap({ issues = [], officer = {} }) {
+  const mapRef = useRef(null);
+  const leafletRef = useRef(null);
+  const [ready, setReady] = useState(false);
+  const [selected, setSelected] = useState(null);
+  const [catFilter, setCatFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+
+  const sevColor = (priority) => {
+    const p = (priority || 'medium').toUpperCase();
+    if (p === 'CRITICAL' || p === 'HIGH') return '#e11d48';
+    if (p === 'MEDIUM') return '#f59e0b';
+    return '#22c55e';
+  };
+  const sevGlow = (p) => {
+    const c = sevColor(p);
+    return `0 0 12px ${c}80`;
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    const init = async () => {
+      if (!mapRef.current || leafletRef.current) return;
+      // Dynamically import Leaflet to keep it out of the initial bundle
+      const L = await import('leaflet');
+      await import('leaflet/dist/leaflet.css');
+      if (cancelled || !mapRef.current) return;
+
+      // Tamil Nadu default centre
+      const map = L.map(mapRef.current, {
+        center: [11.1271, 78.6569],
+        zoom: 7,
+        zoomControl: false,
+      });
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 19,
+      }).addTo(map);
+
+      L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+      // If officer has a district, fly there
+      if (officer.district) {
+        const districtCoords = {
+          'Coimbatore': [11.0168, 76.9558],
+          'Chennai': [13.0827, 80.2707],
+          'Madurai': [9.9252, 78.1198],
+          'Salem': [11.6643, 78.1460],
+          'Tiruchirappalli': [10.7905, 78.7047],
+          'Trichy': [10.7905, 78.7047],
+        };
+        const coords = districtCoords[officer.district] || [11.1271, 78.6569];
+        map.flyTo(coords, 10, { duration: 1.2 });
+      }
+
+      leafletRef.current = { map, L, markers: L.layerGroup().addTo(map) };
+      setReady(true);
+    };
+    init();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Render markers when issues change
+  useEffect(() => {
+    if (!ready || !leafletRef.current) return;
+    const { map, L, markers } = leafletRef.current;
+    markers.clearLayers();
+
+    const filtered = issues.filter(i => {
+      const lat = i.lat ?? i.latitude;
+      const lon = i.lon ?? i.longitude;
+      if (lat == null || lon == null) return false;
+      if (catFilter !== 'ALL' && i.category !== catFilter) return false;
+      if (statusFilter !== 'ALL' && i.workflow?.toUpperCase() !== statusFilter.toUpperCase()) return false;
+      return true;
+    });
+
+    filtered.forEach((issue) => {
+      const lat = issue.lat ?? issue.latitude;
+      const lon = issue.lon ?? issue.longitude;
+      const color = sevColor(issue.severity);
+      const glow = sevGlow(issue.severity);
+
+      const icon = L.divIcon({
+        className: '',
+        html: `<div style="
+          width:26px;height:26px;border-radius:50%;
+          background:${color};border:3px solid #fff;
+          box-shadow:${glow}, 0 2px 8px rgba(0,0,0,0.5);
+          cursor:pointer;
+        "></div>`,
+        iconSize: [26, 26],
+        iconAnchor: [13, 13],
+      });
+
+      const marker = L.marker([lat, lon], { icon })
+        .addTo(markers)
+        .on('click', () => setSelected(issue));
+    });
+  }, [ready, issues, catFilter, statusFilter]);
+
+  const categories = ['ALL', ...new Set(issues.map(i => i.category).filter(Boolean))];
+  const statuses = ['ALL', 'NEW', 'ACCEPTED', 'IN_PROGRESS', 'RESOLVED'];
+
+  return (
+    <div style={{ background: '#0f172a', borderRadius: 18, border: '1px solid rgba(148,163,184,.08)', overflow: 'hidden' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 20px', flexWrap: 'wrap', gap: 12, borderBottom: '1px solid rgba(148,163,184,.1)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 10, background: 'linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <MapIcon size={20} color="#fff" />
+          </div>
+          <div>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem', fontWeight: 800, color: '#f8fafc' }}>
+              Officer Ward Map
+            </div>
+            <div style={{ fontSize: '.7rem', color: '#64748b', fontWeight: 500 }}>
+              {officer.district || 'TN'} · {officer.zone || 'Zone'} · {officer.officer_id || 'OFF001'}
+            </div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <select value={catFilter} onChange={e => setCatFilter(e.target.value)}
+            style={{ background: '#1e293b', border: '1px solid rgba(148,163,184,.15)', borderRadius: 7, color: '#f8fafc', padding: '5px 10px', fontSize: '.78rem', cursor: 'pointer', fontWeight: 600 }}>
+            {categories.map(c => <option key={c} value={c}>{c === 'ALL' ? 'All categories' : c}</option>)}
+          </select>
+          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+            style={{ background: '#1e293b', border: '1px solid rgba(148,163,184,.15)', borderRadius: 7, color: '#f8fafc', padding: '5px 10px', fontSize: '.78rem', cursor: 'pointer', fontWeight: 600 }}>
+            {statuses.map(s => <option key={s} value={s}>{s === 'ALL' ? 'All statuses' : s.replace('_', ' ')}</option>)}
+          </select>
+          <button
+            onClick={() => setSelected(null)}
+            style={{ padding: '5px 12px', background: '#1e293b', border: '1px solid rgba(148,163,184,.15)', borderRadius: 7, color: '#94a3b8', cursor: 'pointer', fontSize: '.78rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
+            <RefreshCw size={12} /> Refresh
+          </button>
+        </div>
+      </div>
+
+      {/* Stats strip */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: 'rgba(148,163,184,.05)', borderBottom: '1px solid rgba(148,163,184,.1)' }}>
+        {[
+          { l: 'Total issues', v: issues.length, c: '#f8fafc' },
+          { l: 'Open', v: issues.filter(i => i.workflow !== 'RESOLVED').length, c: '#e11d48' },
+          { l: 'In progress', v: issues.filter(i => i.workflow === 'IN_PROGRESS').length, c: '#f59e0b' },
+          { l: 'Resolved', v: issues.filter(i => i.workflow === 'RESOLVED').length, c: '#22c55e' },
+        ].map((s, i) => (
+          <div key={i} style={{ padding: '10px 16px', textAlign: 'center' }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', fontWeight: 800, color: s.c, lineHeight: 1 }}>{s.v}</div>
+            <div style={{ fontSize: '.65rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.08em', marginTop: 3 }}>{s.l}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Map + sidebar */}
+      <div style={{ display: 'flex', height: 520, position: 'relative' }}>
+        {/* Leaflet map container */}
+        <div ref={mapRef} style={{ flex: 1, height: '100%', background: '#0f172a' }} />
+
+        {/* Issue sidebar */}
+        <div style={{ width: 280, background: '#0f172a', borderLeft: '1px solid rgba(148,163,184,.08)', overflowY: 'auto', padding: '12px 0' }}>
+          <div style={{ fontSize: '.65rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.1em', padding: '0 14px 10px', borderBottom: '1px solid rgba(148,163,184,.06)' }}>
+            Issues ({issues.length})
+          </div>
+          {issues.length === 0 ? (
+            <div style={{ padding: '24px 14px', textAlign: 'center', color: '#475569', fontSize: '.8rem' }}>
+              No issues assigned to your ward.
+            </div>
+          ) : (
+            issues.slice(0, 30).map((issue, i) => {
+              const color = sevColor(issue.severity);
+              return (
+                <button
+                  key={issue.id || i}
+                  onClick={() => setSelected(issue)}
+                  style={{
+                    width: '100%', padding: '10px 14px', textAlign: 'left', cursor: 'pointer',
+                    background: selected?.id === issue.id ? 'rgba(99,102,241,.15)' : 'transparent',
+                    border: 'none', borderBottom: '1px solid rgba(148,163,184,.05)',
+                    transition: 'background .15s',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0, boxShadow: sevGlow(issue.severity) }} />
+                    <span style={{ fontSize: '.7rem', color: '#94a3b8', fontFamily: 'var(--font-mono)' }}>{issue.id}</span>
+                    <span style={{ fontSize: '.6rem', padding: '1px 5px', borderRadius: 4, background: '#1e293b', color: '#94a3b8', marginLeft: 'auto' }}>
+                      {issue.workflow?.replace('_', ' ')}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '.78rem', fontWeight: 600, color: '#e2e8f0', lineHeight: 1.3, marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {issue.title}
+                  </div>
+                  <div style={{ fontSize: '.65rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <MapPin size={9} /> {issue.location || issue.ward}
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </div>
+
+        {/* Selected issue detail card */}
+        {selected && (
+          <div style={{
+            position: 'absolute', top: 12, right: 292, zIndex: 1000,
+            background: 'rgba(15,23,42,.94)', backdropFilter: 'blur(16px)',
+            border: '1px solid rgba(148,163,184,.12)', borderRadius: 14,
+            padding: '14px 16px', width: 260, boxShadow: '0 24px 48px rgba(0,0,0,.5)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <span className="mono body-xs" style={{ color: '#64748b', fontSize: '.7rem' }}>{selected.id}</span>
+              <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: 0 }}><X size={14} /></button>
+            </div>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: '.95rem', fontWeight: 700, color: '#f8fafc', marginBottom: 6, lineHeight: 1.3 }}>{selected.title}</div>
+            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 8 }}>
+              <span style={{ padding: '2px 7px', borderRadius: 5, background: sevColor(selected.severity) + '33', color: sevColor(selected.severity), fontSize: '.68rem', fontWeight: 700, textTransform: 'uppercase' }}>{selected.severity}</span>
+              <span style={{ padding: '2px 7px', borderRadius: 5, background: 'rgba(99,102,241,.15)', color: '#a5b4fc', fontSize: '.68rem', fontWeight: 600 }}>{selected.category}</span>
+              <span style={{ padding: '2px 7px', borderRadius: 5, background: 'rgba(100,116,139,.2)', color: '#94a3b8', fontSize: '.68rem', fontWeight: 600 }}>{selected.workflow?.replace('_', ' ')}</span>
+            </div>
+            <div style={{ fontSize: '.75rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+              <MapPin size={11} /> {selected.location || selected.ward}
+            </div>
+            <div style={{ fontSize: '.75rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+              <Clock size={11} /> {new Date(selected.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+            </div>
+            {selected.department && (
+              <div style={{ fontSize: '.75rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Building2 size={11} /> {selected.department}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Legend */}
+        <div style={{
+          position: 'absolute', bottom: 12, left: 12, zIndex: 1000,
+          background: 'rgba(15,23,42,.9)', backdropFilter: 'blur(12px)',
+          border: '1px solid rgba(148,163,184,.1)', borderRadius: 10,
+          padding: '10px 14px'
+        }}>
+          <div style={{ fontSize: '.6rem', fontWeight: 900, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.1em', marginBottom: 8 }}>Severity</div>
+          {[['Critical/High', '#e11d48'], ['Medium', '#f59e0b'], ['Low', '#22c55e']].map(([l, c]) => (
+            <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: c, boxShadow: `0 0 6px ${c}80` }} />
+              <span style={{ fontSize: '.72rem', color: '#cbd5e1', fontWeight: 500 }}>{l}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

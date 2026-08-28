@@ -2,7 +2,7 @@ export function processNewComplaint(rawReport, existingComplaints) {
   const { titleTa, titleEn, photoUrl, location, voiceTranscriptTa } = rawReport;
 
   // 1. Anti-Spam & Image Quality Check
-  if (!photoUrl && !titleTa && !voiceTranscriptTa) {
+  if (!photoUrl && !titleTa && !titleEn && !voiceTranscriptTa) {
     return {
       status: "REJECTED_SPAM",
       reasonTa: "புகைப்படம் அல்லது உரை விவரம் இல்லை (வெற்றுப் பதிவு நிராகரிக்கப்பட்டது)",

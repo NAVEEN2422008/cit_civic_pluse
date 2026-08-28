@@ -1,4 +1,6 @@
-const API_BASE_URL = 'http://localhost:8000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_URL 
+  ? `${import.meta.env.VITE_API_URL}/api/v1`
+  : 'http://localhost:8000/api/v1';
 
 export const apiService = {
   // Token management
@@ -441,5 +443,96 @@ export const apiService = {
       body: JSON.stringify({ status, assigned_worker_name: assignedWorkerName, resolution_notes: resolutionNotes })
     });
     return res.json();
-  }
+  },
+
+  // --- FIREBASE AUTH + FIRESTORE (primary, with localStorage fallback) ---
+
+  firebaseCitizenLogin: async (email, password) => {
+    let fb;
+    try {
+      fb = await import('../firebase');
+    } catch (e) {
+      throw new Error('Firebase not initialised');
+    }
+    if (!fb.auth) throw new Error('Firebase Auth not available. Using demo mode.');
+    const { user } = await fb.signInWithEmailAndPassword(fb.auth, email, password);
+    const token = await user.getIdToken();
+    apiService.setTokens(token, null);
+    return {
+      user_id: user.uid,
+      email: user.email,
+      role: 'CITIZEN',
+      name: user.displayName || (email || '').split('@')[0] || 'Citizen',
+      access_token: token,
+    };
+  },
+
+  firebaseOfficerLogin: async (officer_id, password) => {
+    let fb;
+    try {
+      fb = await import('../firebase');
+    } catch (e) {
+      throw new Error('Firebase not initialised');
+    }
+    if (!fb.auth || !fb.db) throw new Error('Firebase not available. Using demo mode.');
+    const officerEmail = `officer_${officer_id}@civic-d36c7.firebaseauth.com`;
+    const { user } = await fb.signInWithEmailAndPassword(fb.auth, officerEmail, password);
+    const token = await user.getIdToken();
+    apiService.setTokens(token, null);
+    const { doc, getDoc } = await import('firebase/firestore');
+    let profile = {};
+    try {
+      const profileSnap = await getDoc(doc(fb.db, 'officers', officer_id));
+      if (profileSnap.exists()) profile = profileSnap.data();
+    } catch {}
+    return {
+      user_id: user.uid,
+      email: user.email,
+      role: 'OFFICER',
+      officer_id,
+      name: profile.name || `Officer ${officer_id}`,
+      district: profile.district || 'Coimbatore',
+      department: profile.department || 'General',
+      zone: profile.zone || 'Zone 5',
+      tier: profile.tier || 'ward',
+      access_token: token,
+    };
+  },
+
+  firebaseLogout: async () => {
+    try {
+      const fb = await import('../firebase');
+      if (fb.signOut && fb.auth) await fb.signOut(fb.auth);
+    } catch {}
+    apiService.clearTokens();
+  },
+
+  firebaseGetIssues: async () => {
+    try {
+      const fb = await import('../firebase');
+      const { collection, getDocs, orderBy, query } = await import('firebase/firestore');
+      const snap = await getDocs(query(collection(fb.db, 'issues'), orderBy('created_at', 'desc')));
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch (err) {
+      console.warn('firebaseGetIssues fallback:', err.message);
+      return null;
+    }
+  },
+
+  firebaseCreateIssue: async (issueData) => {
+    try {
+      const fb = await import('../firebase');
+      const { collection, addDoc, serverTimestamp } = await import('firebase/firestore');
+      const docRef = await addDoc(collection(fb.db, 'issues'), {
+        ...issueData,
+        status: issueData.status || 'OPEN',
+        created_at: serverTimestamp(),
+        updated_at: serverTimestamp(),
+      });
+      return { id: docRef.id, ...issueData };
+    } catch (err) {
+      console.warn('firebaseCreateIssue fallback:', err.message);
+      return null;
+    }
+  },
 };

@@ -180,7 +180,7 @@ export default function AdminDashboard({ lang = 'en', complaints = [], onBack, s
           <MapPin size={18} color="#38bdf8" />
           <span>Statewide Geospatial Hotspot Satellite Visualizer</span>
         </h3>
-        <CivicHeatmapView />
+        <CivicHeatmapView publicIssues={complaints} />
       </div>
 
     </div>

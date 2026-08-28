@@ -23,11 +23,15 @@ export default function ReviewSubmitStep({
     <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--primary)' }}>
         <CheckCircle2 size={24} />
-        <h3 style={{ fontSize: '1.2rem', fontWeight: 800 }}>Step 5: Review & Submit Complaint</h3>
+        <h3 style={{ fontSize: '1.2rem', fontWeight: 800 }}>
+          {language === 'Tamil' ? 'மதிப்பாய்வு & இறுதி சமர்ப்பம்' : 'Step 5: Review & Submit Complaint'}
+        </h3>
       </div>
 
       <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-        Review your complaint details before sending it to the CivicPulse intake system.
+        {language === 'Tamil'
+          ? 'CivicPulse பதிவு முறைமைக்கு அனுப்பும் முன் உங்கள் புகார் விவரங்களை மதிப்பாய்வு செய்யுங்கள்.'
+          : 'Review your complaint details before sending it to the CivicPulse intake system.'}
       </p>
 
       {/* Inputs Summary Cards */}
@@ -37,17 +41,19 @@ export default function ReviewSubmitStep({
         <div style={{ padding: '14px', background: 'rgba(15, 23, 42, 0.6)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Camera size={16} /> Photo Attachment:
+              <Camera size={16} /> {language === 'Tamil' ? 'புகைப்படம்:' : 'Photo Attachment:'}
             </span>
             <button type="button" onClick={() => onEditStep(1)} style={{ background: 'none', border: 'none', color: '#0ea5e9', fontSize: '0.75rem', cursor: 'pointer' }}>
-              <Edit3 size={13} /> Edit
+              <Edit3 size={13} /> {language === 'Tamil' ? 'திருத்து' : 'Edit'}
             </button>
           </div>
 
           {hasPhoto ? (
             <img src={photoUrl} alt="Review attachment" style={{ width: '100%', height: '140px', objectFit: 'cover', borderRadius: '8px' }} />
           ) : (
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)', fontStyle: 'italic' }}>No photo attached</span>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)', fontStyle: 'italic' }}>
+              {language === 'Tamil' ? 'புகைப்படம் இல்லை' : 'No photo attached'}
+            </span>
           )}
         </div>
 
@@ -55,17 +61,19 @@ export default function ReviewSubmitStep({
         <div style={{ padding: '14px', background: 'rgba(15, 23, 42, 0.6)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <FileText size={16} /> Text Description ({language}):
+              <FileText size={16} /> {language === 'Tamil' ? `உரை விவரம் (${language}):` : `Text Description (${language}):`}
             </span>
             <button type="button" onClick={() => onEditStep(2)} style={{ background: 'none', border: 'none', color: '#0ea5e9', fontSize: '0.75rem', cursor: 'pointer' }}>
-              <Edit3 size={13} /> Edit
+              <Edit3 size={13} /> {language === 'Tamil' ? 'திருத்து' : 'Edit'}
             </button>
           </div>
 
           {hasText ? (
             <p style={{ fontSize: '0.85rem', color: 'var(--text-main)', margin: 0 }}>"{description}"</p>
           ) : (
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)', fontStyle: 'italic' }}>No text description provided</span>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)', fontStyle: 'italic' }}>
+              {language === 'Tamil' ? 'உரை விவரம் இல்லை' : 'No text description provided'}
+            </span>
           )}
         </div>
 
@@ -73,17 +81,19 @@ export default function ReviewSubmitStep({
         <div style={{ padding: '14px', background: 'rgba(15, 23, 42, 0.6)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Mic size={16} /> Voice Recording:
+              <Mic size={16} /> {language === 'Tamil' ? 'குரல் பதிவு:' : 'Voice Recording:'}
             </span>
             <button type="button" onClick={() => onEditStep(3)} style={{ background: 'none', border: 'none', color: '#0ea5e9', fontSize: '0.75rem', cursor: 'pointer' }}>
-              <Edit3 size={13} /> Edit
+              <Edit3 size={13} /> {language === 'Tamil' ? 'திருத்து' : 'Edit'}
             </button>
           </div>
 
           {hasVoice ? (
             <audio src={voiceData.url || voiceData.audioUrl} controls style={{ width: '100%', height: '32px' }} />
           ) : (
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)', fontStyle: 'italic' }}>No voice note recorded</span>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)', fontStyle: 'italic' }}>
+              {language === 'Tamil' ? 'குரல் பதிவு இல்லை' : 'No voice note recorded'}
+            </span>
           )}
         </div>
 
@@ -91,16 +101,16 @@ export default function ReviewSubmitStep({
         <div style={{ padding: '14px', background: 'rgba(15, 23, 42, 0.6)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
             <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <MapPin size={16} /> Location:
+              <MapPin size={16} /> {language === 'Tamil' ? 'இடம்:' : 'Location:'}
             </span>
             <button type="button" onClick={() => onEditStep(4)} style={{ background: 'none', border: 'none', color: '#0ea5e9', fontSize: '0.75rem', cursor: 'pointer' }}>
-              <Edit3 size={13} /> Edit
+              <Edit3 size={13} /> {language === 'Tamil' ? 'திருத்து' : 'Edit'}
             </button>
           </div>
 
           <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>📍 {wardDisplay}</div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-            Lat: {locationData.lat?.toFixed(4) || '13.0827'}, Lng: {(locationData.lng || locationData.lon || 80.2707).toFixed(4)} ({locationData.source})
+            Lat: {locationData.lat?.toFixed(4) || '13.0827'}, Lng: {(locationData.lng || locationData.lon || 80.2707).toFixed(4)} ({locationData.source}{locationData.accuracy ? ` · ±${locationData.accuracy}m` : ''})
           </div>
         </div>
 
@@ -115,7 +125,10 @@ export default function ReviewSubmitStep({
         style={{ padding: '16px', justifyContent: 'center', fontSize: '1.05rem', marginTop: '8px' }}
       >
         <Send size={20} />
-        <span>{isSubmitting ? 'Submitting Issue to Intake API...' : 'Submit Complaint'}</span>
+        <span>{isSubmitting
+          ? (language === 'Tamil' ? 'சமர்ப்பிக்கப்படுகிறது...' : 'Submitting Issue to Intake API...')
+          : (language === 'Tamil' ? 'புகாரைச் சமர்ப்பிக்க' : 'Submit Complaint')}
+        </span>
       </button>
     </div>
   );

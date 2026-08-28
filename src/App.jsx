@@ -46,24 +46,38 @@ export default function App() {
   const [govOpen, setGovOpen] = useState(false); // collector/admin governance portal toggle
   const [map3D, setMap3D] = useState(false); // 2D vs 3D heatmap toggle
 
-  // Check existing session token on mount
+  // Check existing Firebase session on mount
   useEffect(() => {
-    const checkExistingAuth = async () => {
+    let unsubscribe = () => {};
+    const initFirebaseAuth = async () => {
       try {
-        if (apiService.getToken()) {
-          const profile = await apiService.getUserProfile();
-          setUserProfile(profile);
-          setIsAuthenticated(true);
-          setLang(profile.preferred_language || 'English');
-          setActiveRole(profile.role || 'CITIZEN');
-          setAuthStep('app');
-        }
-      } catch (e) {
-        apiService.clearTokens();
-        setIsAuthenticated(false);
-      }
+        const { auth, onAuthStateChanged } = await import('./firebase');
+        if (!auth || !onAuthStateChanged) return;
+        unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+          if (firebaseUser) {
+            const token = await firebaseUser.getIdToken();
+            apiService.setTokens(token, null);
+            setUserProfile({
+              civic_user_id: firebaseUser.uid,
+              role: 'CITIZEN',
+              preferred_language: 'English',
+              email: firebaseUser.email,
+              name: firebaseUser.displayName || firebaseUser.email?.split('@')[0],
+            });
+            setIsAuthenticated(true);
+            setAuthStep('app');
+          } else {
+            if (apiService.getToken()) {
+              apiService.clearTokens();
+            }
+            setIsAuthenticated(false);
+            setAuthStep('splash');
+          }
+        });
+      } catch {}
     };
-    checkExistingAuth();
+    initFirebaseAuth();
+    return unsubscribe;
   }, []);
 
   const handleAuthSuccess = (tokenData) => {
@@ -87,7 +101,8 @@ export default function App() {
     setActiveTab('home');
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try { await apiService.firebaseLogout(); } catch {}
     apiService.clearTokens();
     setIsAuthenticated(false);
     setUserProfile(null);
@@ -97,7 +112,43 @@ export default function App() {
     setGovOpen(false);
   };
 
-  const handleNewComplaintCreated = (newIssue) => {
+  // Firestore real-time subscription for civic issues (merged with seed data
+  // so the demo never appears empty).
+  useEffect(() => {
+    if (!isAuthenticated) return undefined;
+    let unsubscribe = undefined;
+    let cancelled = false;
+    const subscribe = async () => {
+      try {
+        const fb = await import('./firebase');
+        const { collection, onSnapshot, orderBy, query, where } = await import('firebase/firestore');
+        if (!fb.db) return;
+        const issuesRef = collection(fb.db, 'issues');
+        let q = query(issuesRef, orderBy('created_at', 'desc'));
+        if (userProfile?.email) {
+          q = query(issuesRef, where('reporterEmail', '==', userProfile.email), orderBy('created_at', 'desc'));
+        }
+        unsubscribe = onSnapshot(q,
+          (snap) => {
+            if (cancelled) return;
+            const fromFs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            if (fromFs.length) {
+              setComplaints(prev => {
+                const map = new Map();
+                [...fromFs, ...prev].forEach(c => c?.id && map.set(c.id, c));
+                return Array.from(map.values());
+              });
+            }
+          },
+          (err) => { console.warn('Firestore issues note:', err?.message); }
+        );
+      } catch (e) { console.warn('Firestore subscribe failed:', e?.message); }
+    };
+    subscribe();
+    return () => { cancelled = true; if (unsubscribe) unsubscribe(); };
+  }, [isAuthenticated, userProfile?.email]);
+
+  const handleNewComplaintCreated = async (newIssue) => {
     // Tag the new issue with the current citizen's identity so it shows up
     // in their "My Filed Complaints" hub.
     const tagged = {
@@ -116,6 +167,8 @@ export default function App() {
     };
     setComplaints(prev => [tagged, ...prev]);
     setActiveTab('hub');
+    // Fire-and-forget persist to Firestore (no-op if offline / denied)
+    try { await apiService.firebaseCreateIssue(tagged); } catch {}
   };
 
   const handleOpenIssueDetail = (issue) => {
@@ -123,21 +176,32 @@ export default function App() {
     setIsTimelineModalOpen(true);
   };
 
-  const formattedPublicIssues = complaints.map(c => ({
-    id: c.id,
-    category: c.categoryEn || c.category || 'ROADS',
-    title_ta: c.titleTa || c.original_description || 'சாக்கடை அடைப்பு',
-    title_en: c.titleEn || c.processed_description || 'Civic Infrastructure Defect',
-    location_ward: c.ward || c.location_ward || 'Ward 104, Anna Nagar',
-    status: c.status || 'OPEN',
-    supporters_count: c.reporterCount || c.supporters_count || 1,
-    reports_count: c.reporterCount || c.reports_count || 1,
-    created_at: c.createdAt || c.created_at || new Date().toISOString(),
-    priority: c.priority || 'MEDIUM',
-    photo_url: c.photoUrl || c.media_url,
-    lat: c.lat ?? c.latitude ?? null,
-    lon: c.lon ?? c.longitude ?? null
-  }));
+  const formattedPublicIssues = complaints.map(c => {
+    const prio = (c.priority || 'MEDIUM').toUpperCase();
+    const intensity =
+      prio === 'CRITICAL' ? 0.95 :
+      prio === 'HIGH' ? 0.88 :
+      prio === 'LOW' ? 0.35 :
+      0.65;
+    return {
+      id: c.id,
+      latitude: c.lat ?? c.latitude ?? null,
+      longitude: c.lon ?? c.longitude ?? null,
+      lat: c.lat ?? c.latitude ?? null,
+      lon: c.lon ?? c.longitude ?? null,
+      category: c.categoryEn || c.category || 'ROADS',
+      title_ta: c.titleTa || c.original_description || 'சாக்கடை அடைப்பு',
+      title_en: c.titleEn || c.processed_description || 'Civic Infrastructure Defect',
+      location_ward: c.ward || c.location_ward || 'Ward 104, Anna Nagar',
+      status: c.status || 'OPEN',
+      supporters_count: c.reporterCount || c.supporters_count || 1,
+      reports_count: c.reporterCount || c.reports_count || 1,
+      created_at: c.createdAt || c.created_at || new Date().toISOString(),
+      priority: c.priority || 'MEDIUM',
+      intensity,
+      photo_url: c.photoUrl || c.media_url,
+    };
+  });
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-primary)' }}>
@@ -235,25 +299,41 @@ export default function App() {
             {authStep === 'login' && (
               <LoginScreen
                 onLogin={async (data) => {
+                  let result;
+                  let firebaseErr = null;
                   try {
-                    let result;
                     if (data.role === 'citizen') {
                       if (data.method === 'otp') {
                         result = await apiService.citizenOtpLogin(data.email, data.otp);
                       } else {
-                        result = await apiService.citizenLogin(data.email, data.password);
+                        try {
+                          result = await apiService.firebaseCitizenLogin(data.email, data.password);
+                        } catch (fbErr) {
+                          firebaseErr = fbErr;
+                          result = await apiService.citizenLogin(data.email, data.password);
+                        }
                       }
                     } else {
-                      result = await apiService.officerLogin(data.officer_id, data.password);
+                      try {
+                        result = await apiService.firebaseOfficerLogin(data.officer_id, data.password);
+                      } catch (fbErr) {
+                        firebaseErr = fbErr;
+                        result = await apiService.officerLogin({ officer_id: data.officer_id, password: data.password });
+                      }
                     }
                     handleAuthSuccess({
                       role: (result.role || (data.role === 'officer' ? 'OFFICER' : 'CITIZEN')).toUpperCase(),
                       user_id: result.user_id || result.officer_id || result.id,
                       email: data.email || result.email,
                       officer_id: data.officer_id || result.officer_id,
-                      preferred_language: 'English'
-                    });                  } catch {
-                    // Offline demo mode — still let user in
+                      preferred_language: 'English',
+                      name: result.name,
+                      department: result.department,
+                      district: result.district,
+                      zone: result.zone,
+                      tier: result.tier,
+                    });
+                  } catch (loginErr) {
                     handleAuthSuccess({
                       role: data.role === 'officer' ? 'OFFICER' : 'CITIZEN',
                       user_id: data.role === 'officer' ? data.officer_id : data.email,

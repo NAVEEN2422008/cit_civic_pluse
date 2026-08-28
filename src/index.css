@@ -58,6 +58,17 @@
   --warning-bg:   #fffbeb;
   --info:         #1d4ed8;
   --info-bg:      #eff6ff;
+  /* Brand aliases used across the app */
+  --primary:      #0c7a5e;       /* = --green-500 */
+  --primary-50:   #e6f0ed;       /* = --green-50  */
+  --primary-100:  #b3d9cf;       /* = --green-100 */
+  --primary-bg:   rgba(12,122,94,.08);
+
+  /* Glass / dark theme aliases (used by CitizenPortal + intake wizard) */
+  --text-main:    #f8fafc;
+  --text-muted:   #94a3b8;
+  --text-dim:     #64748b;
+  --border-color: rgba(148,163,184,.15);
   
   /* Severity */
   --sev-critical: #c1121f;

@@ -11,7 +11,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png'
 });
 
-export default function LocationPickerStep({ locationData, setLocationData, onComplete }) {
+export default function LocationPickerStep({ locationData, setLocationData, onComplete, language = 'English' }) {
   const [loadingGps, setLoadingGps] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
 
@@ -82,40 +82,73 @@ export default function LocationPickerStep({ locationData, setLocationData, onCo
 
   const handleFetchGps = () => {
     setLoadingGps(true);
-    if ('geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const lat = position.coords.latitude;
-          const lng = position.coords.longitude;
-          setLocationData(prev => ({
-            ...prev,
-            lat: lat,
-            lng: lng,
-            accuracy: Math.round(position.coords.accuracy),
-            source: 'LIVE_GPS',
-            ward: prev.ward || 'Greater Chennai Corporation (Ward 104 - Anna Nagar)'
-          }));
-          setLoadingGps(false);
-          setIsConfirmed(true);
-        },
-        (error) => {
-          // Fallback location on browser denied/timeout
-          setLocationData(prev => ({
-            ...prev,
-            lat: 13.0827,
-            lng: 80.2707,
-            accuracy: 12,
-            source: 'LIVE_GPS_FALLBACK',
-            ward: prev.ward || 'Greater Chennai Corporation (Ward 104 - Anna Nagar)'
-          }));
-          setLoadingGps(false);
-          setIsConfirmed(true);
-        },
-        { enableHighAccuracy: true, timeout: 5000 }
-      );
-    } else {
-      setLoadingGps(false);
-    }
+    if (!('geolocation' in navigator)) { setLoadingGps(false); return; }
+
+    let bestPos = null;
+    let watchId = null;
+    let settleTimer = null;
+
+    const done = () => {
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      if (settleTimer) clearTimeout(settleTimer);
+    };
+
+    // Use watchPosition to continuously improve accuracy, settle after
+    // a high-accuracy reading (< 10m) OR after 8 seconds max
+    watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        const acc = position.coords.accuracy;
+
+        // Update UI with this reading
+        setLocationData(prev => ({
+          ...prev,
+          lat,
+          lng,
+          accuracy: Math.round(acc),
+          source: 'LIVE_GPS',
+          ward: prev.ward || 'Greater Chennai Corporation (Ward 104 - Anna Nagar)',
+        }));
+
+        // Accept this reading if accuracy is good (<10m) or this is the first reading
+        if (!bestPos || acc < bestPos.coords.accuracy) {
+          bestPos = position;
+        }
+
+        // Settle: stop watching once accuracy is good or 8s elapsed
+        if (acc < 10 || !settleTimer) {
+          settleTimer = setTimeout(() => {
+            if (bestPos) {
+              const lat = bestPos.coords.latitude;
+              const lng = bestPos.coords.longitude;
+              setLocationData(prev => ({
+                ...prev,
+                lat, lng,
+                accuracy: Math.round(bestPos.coords.accuracy),
+                source: 'LIVE_GPS',
+              }));
+            }
+            setLoadingGps(false);
+            setIsConfirmed(true);
+            done();
+          }, 1500);
+        }
+      },
+      (error) => {
+        done();
+        setLocationData(prev => ({
+          ...prev,
+          lat: 13.0827,
+          lng: 80.2707,
+          accuracy: 500,
+          source: 'GPS_FALLBACK',
+        }));
+        setLoadingGps(false);
+        setIsConfirmed(true);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
   };
 
   const selectWardOption = (wardName) => {
@@ -150,16 +183,21 @@ export default function LocationPickerStep({ locationData, setLocationData, onCo
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--primary)' }}>
           <MapPin size={22} />
-          <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Step 4: Live Location & Coordinate Picker</h3>
+          <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>
+            {language === 'Tamil' ? 'இடம் & ஆய்வுக்கோவை' : 'Step 4: Live Location & Coordinate Picker'}
+          </h3>
         </div>
 
         <span className="badge badge-low" style={{ fontSize: '0.7rem' }}>
-          Source: {locationData.source || 'LIVE_GPS'}
+          {locationData.source || 'GPS'}
+          {locationData.accuracy ? ` · ±${locationData.accuracy}m` : ''}
         </span>
       </div>
 
       <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-        Click/drag on the live satellite map, use device GPS, or type custom latitude/longitude coordinates.
+        {language === 'Tamil'
+          ? 'GPS-அடிப்படையில் இடத்தைக் கண்டறியவும், வரைபடத்தில் கிளிக் செய்யவும் அல்லது ஆய்வுக்கோவை இடங்களை உள்ளிடவும்.'
+          : 'Detect GPS-based location, click on the map, or type latitude/longitude coordinates. Higher accuracy = better location precision.'}
       </p>
 
       {/* Primary Live GPS Detect Button */}
@@ -171,13 +209,22 @@ export default function LocationPickerStep({ locationData, setLocationData, onCo
         style={{ padding: '12px', justifyContent: 'center', fontSize: '0.9rem' }}
       >
         <Navigation size={18} />
-        <span>{loadingGps ? 'Detecting Live GPS...' : 'Detect Live Device GPS Location'}</span>
+        <span>
+          {loadingGps
+            ? (language === 'Tamil' ? 'GPS கண்டறிதல்...' : 'Detecting Live GPS...')
+            : (language === 'Tamil' ? '📍 GPS இடத்தைக் கண்டறி' : 'Detect Live Device GPS Location')}
+        </span>
+        {locationData.accuracy && !loadingGps && (
+          <span style={{ fontSize: '0.75rem', marginLeft: '6px', color: '#86efac' }}>
+            ±{locationData.accuracy}m
+          </span>
+        )}
       </button>
 
       {/* Live Esri Satellite Leaflet Map Container */}
       <div>
         <label style={{ display: 'block', fontSize: '0.8rem', color: '#38bdf8', fontWeight: 700, marginBottom: '6px' }}>
-          🗺️ Live Satellite Map (Click or Drag Marker to Pick Location):
+          {language === 'Tamil' ? '🗺️ செய்லைட் வரைபடம் (மார்க்கர் இழுக்கவும்)' : '🗺️ Live Satellite Map (Drag marker to pick location):'}
         </label>
         <div
           ref={mapContainerRef}
@@ -192,11 +239,11 @@ export default function LocationPickerStep({ locationData, setLocationData, onCo
         />
       </div>
 
-      {/* Manual Latitude & Longitude Input Fields (Option for Exact Coordinates) */}
+      {/* Manual Latitude & Longitude Input Fields */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
         <div>
           <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
-            Latitude Coordinate:
+            {language === 'Tamil' ? 'அட்சரேகை (Latitude):' : 'Latitude Coordinate:'}
           </label>
           <input
             type="number"
@@ -210,7 +257,7 @@ export default function LocationPickerStep({ locationData, setLocationData, onCo
 
         <div>
           <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
-            Longitude Coordinate:
+            {language === 'Tamil' ? 'தீர்க்கரேகை (Longitude):' : 'Longitude Coordinate:'}
           </label>
           <input
             type="number"
@@ -223,10 +270,10 @@ export default function LocationPickerStep({ locationData, setLocationData, onCo
         </div>
       </div>
 
-      {/* Ward Dropdown Picker (Removed Default Selection -> Requires Explicit Choice) */}
+      {/* Ward Dropdown Picker */}
       <div>
         <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
-          Select Ward Area (Optional):
+          {language === 'Tamil' ? 'வார்டைத் தேர்ந்தெடுக்கவும் (விருப்பம்):' : 'Select Ward (Optional):'}
         </label>
         <select
           className="glass-input"
@@ -234,7 +281,7 @@ export default function LocationPickerStep({ locationData, setLocationData, onCo
           onChange={(e) => selectWardOption(e.target.value)}
         >
           <option value="" style={{ background: '#0f172a' }}>
-            -- Select Ward / District (No Default Selected) --
+            -- {language === 'Tamil' ? 'வார்டு/மாவட்டம் தேர்வு' : 'Select Ward / District'} --
           </option>
           {TN_DISTRICTS_WARDS.map((wardObj, idx) => (
             <option key={idx} value={wardObj.name} style={{ background: '#0f172a' }}>
@@ -252,7 +299,11 @@ export default function LocationPickerStep({ locationData, setLocationData, onCo
         style={{ padding: '12px', justifyContent: 'center', fontSize: '0.9rem' }}
       >
         <CheckCircle2 size={18} color={isConfirmed ? '#ffffff' : '#6ee7b7'} />
-        <span>{isConfirmed ? 'Location Confirmed ✓' : 'Click to Confirm Location'}</span>
+        <span>
+          {isConfirmed
+            ? (language === 'Tamil' ? 'இடம் உறுதிசெய்யப்பட்டது ✓' : 'Location Confirmed ✓')
+            : (language === 'Tamil' ? 'இடத்தை உறுதிசெய்ய கிளிக் செய்யவும்' : 'Click to Confirm Location')}
+        </span>
       </button>
     </div>
   );

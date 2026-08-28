@@ -256,20 +256,35 @@ export default function CitizenPortal({ lang, complaints = [], setComplaints, us
               {!selectedComplaint ? (
                 <>
                   {/* SEARCH & FILTERS */}
-                  <div className="glass-panel" style={{ padding: '16px 20px', marginBottom: '22px', display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: '240px', background: 'rgba(8, 14, 26, 0.8)', padding: '8px 14px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
-                      <Search size={16} color="var(--text-muted)" />
+                  <div className="glass-panel" style={{ padding: '16px 20px', marginBottom: '22px', display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap', background: '#ffffff', border: '1px solid var(--border)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: '240px', background: '#fafaf6', padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                      <Search size={16} color="var(--ink-3)" />
                       <input
                         type="text"
                         placeholder="Search complaint ID, location, title..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        style={{ background: 'transparent', border: 'none', color: '#f8fafc', outline: 'none', width: '100%', fontSize: '0.86rem' }}
+                        style={{ background: 'transparent', border: 'none', color: 'var(--ink)', outline: 'none', width: '100%', fontSize: '0.86rem', fontWeight: 500 }}
                       />
                     </div>
 
                     <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                      <select className="glass-input" style={{ width: 'auto', fontSize: '0.82rem', height: '42px' }} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+                      <select
+                        value={statusFilter}
+                        onChange={e => setStatusFilter(e.target.value)}
+                        style={{
+                          background: '#ffffff',
+                          color: 'var(--ink)',
+                          border: '1px solid var(--border)',
+                          borderRadius: '8px',
+                          padding: '0 14px',
+                          height: '42px',
+                          fontSize: '0.82rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          minWidth: 170,
+                        }}
+                      >
                         <option value="ALL">All Statuses</option>
                         <option value="OPEN">Active Open</option>
                         <option value="IN_PROGRESS">In Progress</option>

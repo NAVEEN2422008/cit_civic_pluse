@@ -3,7 +3,7 @@
  * Fully integrated with AI Backend endpoints on http://localhost:8000
  */
 
-const BASE_URL = 'http://localhost:8000';
+const BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) || 'http://localhost:8000';
 
 /**
  * Submit Complaint with AI Processing & Auto-Duplicate Detection

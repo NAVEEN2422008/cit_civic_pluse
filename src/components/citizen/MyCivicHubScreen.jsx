@@ -70,12 +70,11 @@ export default function MyCivicHubScreen({
 
       {/* Search Input for Complaints & Public Lists */}
       {hubTab !== 'heatmap' && (
-        <div className="glass-panel" style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Search size={18} color="var(--text-muted)" />
+        <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '10px', background: '#fff', border: '1px solid var(--border)', borderRadius: 'var(--r-md)' }}>
+          <Search size={18} color="var(--ink-3)" />
           <input
             type="text"
-            className="glass-input"
-            style={{ border: 'none', background: 'transparent', padding: 0, fontSize: '0.85rem' }}
+            style={{ border: 'none', background: 'transparent', padding: 0, fontSize: '0.85rem', flex: 1, color: 'var(--ink)', outline: 'none' }}
             placeholder="Search by ticket ID, ward, or issue keyword..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -123,7 +122,7 @@ export default function MyCivicHubScreen({
 
       {/* TAB 3: CIVIC ISSUE HEATMAP */}
       {hubTab === 'heatmap' && (
-        <CivicHeatmapView onViewDetails={onViewDetails} />
+        <CivicHeatmapView publicIssues={publicIssues} onViewDetails={onViewDetails} />
       )}
     </div>
   );

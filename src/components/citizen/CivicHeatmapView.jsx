@@ -25,6 +25,36 @@ function getSeverity(intensity) {
   return SEVERITY.LOW;
 }
 
+// Map descriptive categories (from routing engine) to filter keys
+const CATEGORY_MAP = {
+  'ROADS': 'ROADS', 'ROAD': 'ROADS',
+  'POTHOLE': 'ROADS', 'POTHOLES': 'ROADS',
+  'FOOTPATH': 'ROADS', 'FOOTPATHS': 'ROADS',
+  'STREETLIGHTS': 'STREETLIGHTS', 'STREET LIGHTING (TNEB)': 'STREETLIGHTS',
+  'STREET LIGHTING': 'STREETLIGHTS', 'STREETLIGHT': 'STREETLIGHTS',
+  'ELECTRICITY': 'STREETLIGHTS',
+  'WATER': 'WATER', 'WATER SUPPLY': 'WATER',
+  'DRAINAGE': 'DRAINAGE', 'DRAINAGE & FLOODING': 'DRAINAGE',
+  'SEWERAGE': 'DRAINAGE',
+  'GARBAGE': 'GARBAGE', 'GARBAGE & SANITATION': 'GARBAGE',
+  'SOLID WASTE MANAGEMENT': 'GARBAGE', 'SANITATION': 'GARBAGE',
+  'TRAFFIC': 'SAFETY', 'PUBLIC SAFETY': 'SAFETY',
+  'PARKS': 'SAFETY',
+  'GENERAL CIVIC ISSUE': 'GENERAL',
+  'GENERAL': 'GENERAL',
+};
+
+const normalizeCat = (cat) => {
+  if (!cat) return 'GENERAL';
+  const upper = String(cat).toUpperCase();
+  return CATEGORY_MAP[upper] || CATEGORY_MAP[upper.replace(/[^A-Z]/g, '_')] || 'GENERAL';
+};
+
+const PRIORITY_MAP = { CRITICAL: 0.95, HIGH: 0.88, MEDIUM: 0.65, LOW: 0.35 };
+
+const normalizeStatus = (s) => (s || 'OPEN').toUpperCase().replace(/\s+/g, '_');
+const NORMALIZED_STATUS = { OPEN: 'OPEN', IN_PROGRESS: 'IN_PROGRESS', RESOLVED: 'RESOLVED', PENDING_CONFIRMATION: 'PENDING_CONFIRMATION' };
+
 export default function CivicHeatmapView({ publicIssues = [], onViewDetails }) {
   const [clusters, setClusters] = useState([]);
   const [categoryFilter, setCategoryFilter] = useState('ALL');
@@ -39,64 +69,81 @@ export default function CivicHeatmapView({ publicIssues = [], onViewDetails }) {
   const markersGroupRef = useRef(null);
   const zoneGroupRef = useRef(null);
 
-  const fetchHeatmapData = async () => {
-    // Prefer locally provided issues (incl. newly filed complaints) so they
-    // actually surface on the map, then derive intensity from priority.
-    if (publicIssues && publicIssues.length) {
-      const derived = publicIssues.map((p, idx) => {
-        const prio = (p.priority || '').toUpperCase();
-        const intensity = prio === 'HIGH' || prio === 'CRITICAL' ? 0.9
-          : prio === 'MEDIUM' ? 0.65 : 0.4;
+  const buildClusters = (items) => {
+    if (!items || !items.length) return [];
+    return items
+      .map((p, idx) => {
+        const lat = p.lat ?? p.latitude;
+        const lon = p.lon ?? p.longitude;
+        if (lat == null || lon == null) return null;
+        const normPrio = (p.priority || '').toUpperCase();
+        // Compute intensity from explicit field first, then priority, then default
+        let intensity;
+        if (typeof p.intensity === 'number') intensity = p.intensity;
+        else if (PRIORITY_MAP[normPrio] != null) intensity = PRIORITY_MAP[normPrio];
+        else if (normPrio === 'CRITICAL') intensity = 0.95;
+        else if (normPrio === 'LOW') intensity = 0.35;
+        else intensity = 0.5;
         return {
-          latitude: p.lat ?? p.latitude ?? (100 + idx * 0.001),
-          longitude: p.lon ?? p.longitude,
+          latitude: lat,
+          longitude: lon,
           intensity,
-          category: (p.category || 'GENERAL').toUpperCase(),
+          category: normalizeCat(p.category || p.categoryEn),
           location_ward: p.ward || p.location_ward || 'Citizen report',
-          reports_count: p.reports_count || p.supporters_count || 1,
-          status: p.status || 'OPEN',
+          reports_count: p.reports_count || p.supporters_count || p.reporterCount || 1,
+          status: normalizeStatus(p.status),
+          // Preserve original for detail modal
+          _original: p,
         };
-      }).filter(p => p.longitude != null);
-      if (derived.length) {
-        setClusters(derived);
-        updateStats(derived);
-        return;
-      }
-    }
-    try {
-      const data = await apiService.getHeatmapClusters();
-      setClusters(data);
-      updateStats(data);
-    } catch {
-      const fallback = [
-        { latitude: 13.0827, longitude: 80.2707, intensity: 0.95, category: "ROADS", location_ward: "Ward 104, Anna Nagar, Chennai", reports_count: 28, status: "OPEN" },
-        { latitude: 13.0850, longitude: 80.2680, intensity: 0.88, category: "ROADS", location_ward: "Ward 104 North, Anna Nagar", reports_count: 18, status: "OPEN" },
-        { latitude: 13.0418, longitude: 80.2341, intensity: 0.92, category: "GARBAGE", location_ward: "Ward 112, T. Nagar, Chennai", reports_count: 32, status: "IN_PROGRESS" },
-        { latitude: 12.9815, longitude: 80.2180, intensity: 0.70, category: "STREETLIGHTS", location_ward: "Ward 170, Velachery, Chennai", reports_count: 14, status: "OPEN" },
-        { latitude: 13.0067, longitude: 80.2570, intensity: 0.85, category: "DRAINAGE", location_ward: "Ward 175, Adyar, Chennai", reports_count: 22, status: "IN_PROGRESS" },
-        { latitude: 9.9252, longitude: 78.1198, intensity: 0.89, category: "ROADS", location_ward: "Ward 45, K.K. Nagar, Madurai", reports_count: 24, status: "OPEN" },
-        { latitude: 11.0168, longitude: 76.9558, intensity: 0.94, category: "GARBAGE", location_ward: "Ward 14, Gandhipuram, Coimbatore", reports_count: 30, status: "OPEN" },
-        { latitude: 10.7905, longitude: 78.7047, intensity: 0.65, category: "WATER", location_ward: "Thillai Nagar, Tiruchirappalli", reports_count: 12, status: "RESOLVED" },
-        { latitude: 11.6643, longitude: 78.1460, intensity: 0.78, category: "ROADS", location_ward: "Junction Zone, Salem", reports_count: 19, status: "OPEN" }
-      ];
-      setClusters(fallback);
-      updateStats(fallback);
-    }
+      })
+      .filter(Boolean);
   };
 
   const updateStats = (data) => {
     const s = { total: data.length, critical: 0, high: 0, medium: 0, low: 0 };
     data.forEach(c => {
-      const intensity = c.intensity || 0;
-      if (intensity >= 0.85) s.critical++;
-      else if (intensity >= 0.70) s.high++;
-      else if (intensity >= 0.50) s.medium++;
+      const i = c.intensity || 0;
+      if (i >= 0.85) s.critical++;
+      else if (i >= 0.70) s.high++;
+      else if (i >= 0.50) s.medium++;
       else s.low++;
     });
     setStats(s);
   };
 
-  useEffect(() => { fetchHeatmapData(); }, []);
+  // React to prop changes (new complaints, filters)
+  useEffect(() => {
+    const fromProps = buildClusters(publicIssues);
+    if (fromProps.length) {
+      setClusters(fromProps);
+      updateStats(fromProps);
+      return;
+    }
+    // Fallback to API
+    apiService.getHeatmapClusters()
+      .then(data => {
+        if (data && data.length) {
+          setClusters(data);
+          updateStats(data);
+        }
+      })
+      .catch(() => {
+        const fallback = [
+          { latitude: 13.0827, longitude: 80.2707, intensity: 0.95, category: "ROADS", location_ward: "Ward 104, Anna Nagar, Chennai", reports_count: 28, status: "OPEN" },
+          { latitude: 13.0850, longitude: 80.2680, intensity: 0.88, category: "ROADS", location_ward: "Ward 104 North, Anna Nagar", reports_count: 18, status: "OPEN" },
+          { latitude: 13.0418, longitude: 80.2341, intensity: 0.92, category: "GARBAGE", location_ward: "Ward 112, T. Nagar, Chennai", reports_count: 32, status: "IN_PROGRESS" },
+          { latitude: 12.9815, longitude: 80.2180, intensity: 0.70, category: "STREETLIGHTS", location_ward: "Ward 170, Velachery, Chennai", reports_count: 14, status: "OPEN" },
+          { latitude: 13.0067, longitude: 80.2570, intensity: 0.85, category: "DRAINAGE", location_ward: "Ward 175, Adyar, Chennai", reports_count: 22, status: "IN_PROGRESS" },
+          { latitude: 9.9252, longitude: 78.1198, intensity: 0.89, category: "ROADS", location_ward: "Ward 45, K.K. Nagar, Madurai", reports_count: 24, status: "OPEN" },
+          { latitude: 11.0168, longitude: 76.9558, intensity: 0.94, category: "GARBAGE", location_ward: "Ward 14, Gandhipuram, Coimbatore", reports_count: 30, status: "OPEN" },
+          { latitude: 10.7905, longitude: 78.7047, intensity: 0.65, category: "WATER", location_ward: "Thillai Nagar, Tiruchirappalli", reports_count: 12, status: "RESOLVED" },
+          { latitude: 11.6643, longitude: 78.1460, intensity: 0.78, category: "ROADS", location_ward: "Junction Zone, Salem", reports_count: 19, status: "OPEN" }
+        ];
+        setClusters(fallback);
+        updateStats(fallback);
+      });
+  }, [publicIssues]);
+
   useEffect(() => { if (mapReady) renderHotspots(); }, [clusters, categoryFilter, statusFilter, mapReady]);
 
   useEffect(() => {
