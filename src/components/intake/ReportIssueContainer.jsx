@@ -227,12 +227,7 @@ export default function ReportIssueContainer({ userAuth, onComplaintCreated }) {
           });
         }
       } else {
-        let res;
-        try {
-          res = await apiService.createIssue(issuePayload);
-        } catch {
-          res = apiService._demoCreate(issuePayload);
-        }
+        const res = await apiService.createIssue(issuePayload);
         try { await apiService.firebaseCreateIssue({ ...issuePayload, id: res?.id }); } catch {}
 
         const successMsg = language === 'Tamil'

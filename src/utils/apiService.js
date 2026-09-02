@@ -1,6 +1,18 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL 
-  ? `${import.meta.env.VITE_API_URL}/api/v1`
-  : 'http://localhost:8000/api/v1';
+const configuredApiUrl = import.meta.env.VITE_API_URL?.replace(/\/$/, '');
+const defaultApiUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  ? 'http://localhost:8000'
+  : 'https://cit-civic-pluse.onrender.com';
+const API_BASE_URL = `${configuredApiUrl || defaultApiUrl}/api/v1`;
+
+const fetchWithTimeout = async (url, options = {}, timeoutMs = 30000) => {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+};
 
 export const apiService = {
   // Token management
@@ -367,20 +379,20 @@ export const apiService = {
     }
     let res, data;
     try {
-      res = await fetch(`${API_BASE_URL}/issues/create`, {
+      res = await fetchWithTimeout(`${API_BASE_URL}/issues/create`, {
         method: 'POST',
         headers,
         body: JSON.stringify(issueData)
       });
       try { data = await res.json(); } catch { data = {}; }
     } catch (networkErr) {
-      // Network error — synthesise success in demo mode
-      return apiService._demoCreate(issueData);
+      const message = networkErr.name === 'AbortError'
+        ? 'The complaint request timed out. Please try again.'
+        : 'Unable to reach the CivicPulse backend. Please try again.';
+      throw new Error(message);
     }
     if (!res.ok) {
-      // No real backend: synthesise a success response so the intake wizard
-      // can complete in demo mode.
-      return apiService._demoCreate(issueData);
+      throw new Error(data.detail || data.message || `Complaint submission failed (${res.status}).`);
     }
     return data;
   },
