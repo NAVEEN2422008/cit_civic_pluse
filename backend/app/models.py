@@ -237,3 +237,43 @@ class AuditLog(Base):
     notes = Column(Text, nullable=True)
     ip_address = Column(String, nullable=True)
     timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+# --- RENDER WORKFLOWS OBSERVABILITY & DECISION LOGS ---
+class WorkflowRun(Base):
+    __tablename__ = "workflow_runs"
+
+    id = Column(String, primary_key=True, default=lambda: f"wf-{uuid.uuid4().hex[:8]}", index=True)
+    workflow_name = Column(String, default="civic_complaint_workflow", nullable=False)
+    complaint_id = Column(String, ForeignKey("issues.id"), nullable=False, index=True)
+    status = Column(String, default="RECEIVED", nullable=False) # RECEIVED, PROCESSING, AI_ANALYSIS, DUPLICATE_CHECK, RULE_EVALUATION, DECISION_READY, ROUTED, MANUAL_REVIEW, FAILED, RESOLVED
+    current_step = Column(String, default="preprocess_complaint", nullable=True)
+    progress = Column(Integer, default=0, nullable=False) # 0 to 100
+    retry_count = Column(Integer, default=0, nullable=False)
+    error_message = Column(Text, nullable=True)
+    task_results = Column(Text, nullable=True) # JSON serializable execution logs
+    started_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    completed_at = Column(DateTime, nullable=True)
+
+class DecisionLog(Base):
+    __tablename__ = "decision_logs"
+
+    id = Column(String, primary_key=True, default=generate_uuid, index=True)
+    complaint_id = Column(String, ForeignKey("issues.id"), nullable=False, index=True)
+    workflow_run_id = Column(String, ForeignKey("workflow_runs.id"), nullable=True, index=True)
+    problem_category = Column(String, nullable=True)
+    ai_confidence = Column(Float, nullable=True)
+    severity = Column(String, nullable=True)
+    severity_score = Column(Integer, nullable=True)
+    is_duplicate = Column(Boolean, default=False, nullable=False)
+    duplicate_of_id = Column(String, nullable=True)
+    jurisdiction = Column(String, nullable=True)
+    asset_owner = Column(String, nullable=True)
+    department = Column(String, nullable=True)
+    sla_hours = Column(Integer, nullable=True)
+    priority = Column(String, nullable=True)
+    escalation_path = Column(Text, nullable=True) # JSON list
+    human_verification_required = Column(Boolean, default=False, nullable=False)
+    decision_reason = Column(Text, nullable=True)
+    explainability_payload = Column(Text, nullable=True) # Full JSON snapshot
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+

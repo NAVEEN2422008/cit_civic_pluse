@@ -1,9 +1,12 @@
+import uuid
+import json
+import logging
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import User, Issue, IssueSupport
+from app.models import User, Issue, IssueSupport, WorkflowRun, DecisionLog
 from app.schemas import IssueCreateRequest, IssueResponse, TranscriptCorrectionRequest, ReopenRequest, PublicVerifyVoteRequest, StandardResponse
 from app.security import get_current_user, log_audit_event
 from app.services.sarvam_service import sarvam_service
@@ -14,8 +17,12 @@ from app.services.abuse_protection_service import abuse_protection_service
 from app.services.file_security_service import file_security_service
 from app.services.deduplication_service import haversine_distance_meters
 from app.services.sla_engine import sla_engine
+from workflows.main import civic_complaint_workflow
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/issues", tags=["Civic Issues Intake & Resolution"])
+
 
 def run_sarvam_and_ai_categorization_pipelines(issue: Issue, db: Session):
     """Executes Sarvam AI Voice STT/Translation & Gemini Multimodal AI Categorization Pipelines."""
@@ -161,17 +168,36 @@ def create_issue(
     db.commit()
     db.refresh(new_issue)
 
-    run_sarvam_and_ai_categorization_pipelines(new_issue, db)
+    # Trigger Render Workflow (civic_complaint_workflow)
+    wf_run_id = f"wf-{uuid.uuid4().hex[:8]}"
+    complaint_payload = {
+        "complaint_id": new_issue.id,
+        "user_id": current_user.id,
+        "description": new_issue.description or new_issue.original_description or "",
+        "image_url": new_issue.media_url,
+        "voice_transcript": new_issue.voice_transcript,
+        "latitude": new_issue.latitude,
+        "longitude": new_issue.longitude,
+        "timestamp": start_time.isoformat()
+    }
+
+    try:
+        civic_complaint_workflow(complaint_payload, workflow_run_id=wf_run_id)
+        db.refresh(new_issue)
+    except Exception as wf_err:
+        logger.warning(f"Workflow execution fallback: {wf_err}")
+        run_sarvam_and_ai_categorization_pipelines(new_issue, db)
 
     log_audit_event(
         db,
         event_type="ISSUE_CREATED",
         user_id=current_user.id,
-        details=f"Issue {new_issue.id} created and routed to Officer OFF001.",
+        details=f"Issue {new_issue.id} processed via Render Workflow {wf_run_id}.",
         ip_address=request.client.host
     )
 
     return new_issue
+
 
 @router.get("/public-nearby", response_model=List[IssueResponse])
 def get_public_nearby_issues(
@@ -263,3 +289,70 @@ def support_public_issue(
     issue.supporters_count += 1
     db.commit()
     return StandardResponse(success=True, message="Thank you for supporting this community civic issue!", data={"supporters_count": issue.supporters_count})
+
+# --- RENDER WORKFLOWS OBSERVABILITY & STATUS ENDPOINTS ---
+@router.get("/{issue_id}/processing-status")
+def get_complaint_processing_status(issue_id: str, db: Session = Depends(get_db)):
+    """
+    Returns live Render Workflow execution status, percentage progress, and current task step.
+    Status values: RECEIVED, PROCESSING, AI_ANALYSIS, DUPLICATE_CHECK, RULE_EVALUATION,
+                   DECISION_READY, ROUTED, MANUAL_REVIEW, FAILED, RESOLVED
+    """
+    run = db.query(WorkflowRun).filter(WorkflowRun.complaint_id == issue_id).order_by(WorkflowRun.started_at.desc()).first()
+    issue = db.query(Issue).filter(Issue.id == issue_id).first()
+
+    if not run and not issue:
+        raise HTTPException(status_code=404, detail="Complaint not found")
+
+    decision = None
+    if run and run.task_results:
+        try:
+            results_dict = json.loads(run.task_results)
+            decision = results_dict.get("decision_fusion")
+        except Exception:
+            pass
+
+    status_val = run.status if run else (issue.status if issue else "RECEIVED")
+    progress_val = run.progress if run else 100
+    step_val = run.current_step if run else "completed"
+
+    return {
+        "complaint_id": issue_id,
+        "workflow_run_id": run.id if run else None,
+        "status": status_val,
+        "progress": progress_val,
+        "current_step": step_val,
+        "decision": decision,
+        "department": issue.department_id if issue else None,
+        "is_duplicate": issue.is_duplicate if issue else False,
+        "duplicate_of_id": issue.duplicate_of_id if issue else None,
+        "human_verification_required": issue.ai_review_status == "AI_REVIEW_REQUIRED" if issue else False
+    }
+
+@router.get("/{issue_id}/decision-log")
+def get_complaint_decision_log(issue_id: str, db: Session = Depends(get_db)):
+    """Returns explainable audit trail for AI classification, Rule Engine routing, and Decision Fusion."""
+    dec_log = db.query(DecisionLog).filter(DecisionLog.complaint_id == issue_id).first()
+    if not dec_log:
+        raise HTTPException(status_code=404, detail="No decision log recorded for this complaint.")
+
+    return {
+        "complaint_id": dec_log.complaint_id,
+        "problem_category": dec_log.problem_category,
+        "ai_confidence": dec_log.ai_confidence,
+        "severity": dec_log.severity,
+        "severity_score": dec_log.severity_score,
+        "is_duplicate": dec_log.is_duplicate,
+        "duplicate_of_id": dec_log.duplicate_of_id,
+        "jurisdiction": dec_log.jurisdiction,
+        "asset_owner": dec_log.asset_owner,
+        "department": dec_log.department,
+        "sla_hours": dec_log.sla_hours,
+        "priority": dec_log.priority,
+        "escalation_path": json.loads(dec_log.escalation_path or "[]"),
+        "human_verification_required": dec_log.human_verification_required,
+        "decision_reason": dec_log.decision_reason,
+        "explainability_payload": json.loads(dec_log.explainability_payload or "{}"),
+        "created_at": dec_log.created_at.isoformat()
+    }
+

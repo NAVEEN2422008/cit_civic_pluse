@@ -1,0 +1,60 @@
+services:
+  # 1. FastAPI Web Backend API Service
+  - type: web
+    name: civicpulse-backend
+    runtime: python
+    plan: free
+    region: oregon
+    buildCommand: cd backend && pip install -r requirements.txt
+    startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.8
+      - key: DATABASE_URL
+        value: sqlite:///./civicpulse.db
+      - key: SECRET_KEY
+        generateValue: true
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SARVAM_API_KEY
+        sync: false
+      - key: RENDER_API_KEY
+        sync: false
+      - key: AI_CONFIDENCE_THRESHOLD
+        value: "0.85"
+      - key: DUPLICATE_SIMILARITY_THRESHOLD
+        value: "0.65"
+
+  # 2. Render Workflow Background Worker Service
+  - type: worker
+    name: civicpulse-workflow-worker
+    runtime: python
+    plan: free
+    region: oregon
+    buildCommand: cd backend && pip install -r requirements.txt
+    startCommand: cd backend && python -m workflows.main
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.8
+      - key: DATABASE_URL
+        value: sqlite:///./civicpulse.db
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: AI_CONFIDENCE_THRESHOLD
+        value: "0.85"
+      - key: DUPLICATE_SIMILARITY_THRESHOLD
+        value: "0.65"
+
+  # 3. Vite React Frontend Static Site
+  - type: static
+    name: civicpulse-frontend
+    plan: free
+    region: oregon
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: civicpulse-backend
+          property: host
