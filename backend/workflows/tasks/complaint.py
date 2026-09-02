@@ -73,7 +73,18 @@ def create_or_update_ticket(
             db.add(issue)
 
         # Apply Decision Fusion attributes
-        issue.ai_category = decision.get("category", "OTHER")
+        category_aliases = {
+            "broken streetlight": "STREETLIGHT",
+            "street light": "STREETLIGHT",
+            "streetlight": "STREETLIGHT",
+            "pothole": "ROADS",
+            "road": "ROADS",
+            "garbage": "GARBAGE",
+            "drainage": "DRAINAGE",
+            "water": "WATER",
+        }
+        raw_category = str(decision.get("category", "OTHER"))
+        issue.ai_category = category_aliases.get(raw_category.lower(), raw_category.upper())
         issue.ai_issue_type = decision.get("problem", "DEFECT")
         issue.ai_severity = decision.get("severity", "MEDIUM")
         issue.ai_confidence = float(decision.get("ai_confidence", 0.80))

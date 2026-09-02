@@ -75,6 +75,7 @@ app.add_middleware(
 )
 
 from app.routers import auth_router, user_router, citizen_router, issue_router, officer_router, ai_integration_router
+from app.routers.testing_router import router as testing_router
 
 # Include Routers
 app.include_router(auth_router.router, prefix="/api/v1")
@@ -85,6 +86,8 @@ app.include_router(issue_router.router, prefix="/api/v1")
 app.include_router(issue_router.router, prefix="/api/v1/complaints", tags=["Complaints Alias"])
 app.include_router(officer_router.router, prefix="/api/v1")
 app.include_router(ai_integration_router.router, prefix="/api/v1")
+# Internal testing utilities (local/test use only)
+app.include_router(testing_router, prefix="/api/v1")
 
 
 @app.get("/")

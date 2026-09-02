@@ -39,11 +39,17 @@ def get_officer_dashboard(
     issues = db.query(Issue).all()
     
     # Calculate operational metrics using SLA Engine
+    now = datetime.now(timezone.utc)
+    def _normalize_deadline(d):
+        if not d:
+            return None
+        return d if getattr(d, 'tzinfo', None) else d.replace(tzinfo=timezone.utc)
+
     new_assignments = sum(1 for i in issues if i.workflow_state in ["ASSIGNED", "ACCEPTED"])
     high_priority = sum(1 for i in issues if i.ai_severity in ["HIGH", "CRITICAL"])
     in_progress = sum(1 for i in issues if i.workflow_state in ["IN_PROGRESS", "WORK_ORDER_CREATED"])
-    overdue = sum(1 for i in issues if i.sla_deadline and i.sla_deadline < datetime.now(timezone.utc))
-    sla_nearing = sum(1 for i in issues if i.sla_deadline and datetime.now(timezone.utc) <= i.sla_deadline <= datetime.now(timezone.utc) + timedelta(days=2))
+    overdue = sum(1 for i in issues if (d := _normalize_deadline(i.sla_deadline)) and d < now)
+    sla_nearing = sum(1 for i in issues if (d := _normalize_deadline(i.sla_deadline)) and now <= d <= (now + timedelta(days=2)))
     completed = sum(1 for i in issues if i.workflow_state in ["WORK_COMPLETED", "EVIDENCE_UPLOADED", "CLOSED"])
 
     formatted_issues = []

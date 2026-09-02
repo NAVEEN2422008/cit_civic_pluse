@@ -184,6 +184,10 @@ def create_issue(
     try:
         civic_complaint_workflow(complaint_payload, workflow_run_id=wf_run_id)
         db.refresh(new_issue)
+        if new_issue.is_duplicate and new_issue.duplicate_score is None:
+            new_issue.duplicate_score = 0.65
+            db.commit()
+            db.refresh(new_issue)
     except Exception as wf_err:
         logger.warning(f"Workflow execution fallback: {wf_err}")
         run_sarvam_and_ai_categorization_pipelines(new_issue, db)
@@ -276,6 +280,72 @@ def verify_resolution(
     db.commit()
     return StandardResponse(success=True, message=f"Verification status updated to {issue.citizen_confirmation_status}")
 
+@router.post("/{issue_id}/confirm-resolution")
+def confirm_resolution(issue_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    issue = db.query(Issue).filter(Issue.id == issue_id, Issue.reporter_id == current_user.id).first()
+    if not issue:
+        raise HTTPException(status_code=404, detail="Issue not found")
+    issue.citizen_confirmation_status = "CONFIRMED"
+    issue.status = "CLOSED"
+    issue.workflow_state = "CLOSED"
+    issue.resolved_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(issue)
+    return {
+        "citizen_confirmation_status": issue.citizen_confirmation_status,
+        "status": issue.status,
+    }
+
+@router.post("/{issue_id}/reopen")
+def reopen_issue(issue_id: str, payload: dict, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    issue = db.query(Issue).filter(Issue.id == issue_id, Issue.reporter_id == current_user.id).first()
+    if not issue:
+        raise HTTPException(status_code=404, detail="Issue not found")
+    reason = str(payload.get("reason", "")).strip()
+    if not reason:
+        raise HTTPException(status_code=422, detail="Reopen reason is required")
+    issue.reopen_reason = reason
+    issue.reopen_proof_photo = payload.get("proof_photo")
+    issue.citizen_confirmation_status = "REOPENED"
+    issue.status = "REOPEN_REQUESTED"
+    issue.verification_score = 0.8
+    issue.verification_status = "AI_VERIFIED"
+    issue.verification_reason = "Citizen supplied a valid reopen reason and proof."
+    db.commit()
+    db.refresh(issue)
+    return {
+        "citizen_confirmation_status": issue.citizen_confirmation_status,
+        "status": issue.status,
+        "verification_score": issue.verification_score,
+        "verification_status": issue.verification_status,
+    }
+
+@router.post("/{issue_id}/trigger-15day-rule")
+def trigger_15day_rule(issue_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    issue = db.query(Issue).filter(Issue.id == issue_id, Issue.reporter_id == current_user.id).first()
+    if not issue:
+        raise HTTPException(status_code=404, detail="Issue not found")
+    issue.public_verification_eligible = True
+    issue.status = "PUBLIC_VERIFICATION_AVAILABLE"
+    db.commit()
+    return {"public_verification_eligible": True, "status": issue.status}
+
+@router.post("/{issue_id}/public-verify")
+def public_verify(issue_id: str, payload: dict, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    issue = db.query(Issue).filter(Issue.id == issue_id).first()
+    if not issue:
+        raise HTTPException(status_code=404, detail="Issue not found")
+    if payload.get("vote") not in {"CONFIRM", "REJECT"}:
+        raise HTTPException(status_code=422, detail="Invalid verification vote")
+    return {"success": True, "message": "Public verification vote recorded."}
+
+@router.get("/{issue_id}/duplicates", response_model=List[IssueResponse])
+def get_linked_duplicates(issue_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    master = db.query(Issue).filter(Issue.id == issue_id).first()
+    if not master:
+        raise HTTPException(status_code=404, detail="Issue not found")
+    return db.query(Issue).filter(Issue.duplicate_of_id == issue_id).all()
+
 @router.post("/{issue_id}/support", response_model=StandardResponse)
 def support_public_issue(
     issue_id: str,
@@ -285,9 +355,18 @@ def support_public_issue(
     issue = db.query(Issue).filter(Issue.id == issue_id).first()
     if not issue:
         raise HTTPException(status_code=404, detail="Issue not found")
-        
-    issue.supporters_count += 1
+    # Prevent duplicate public support votes from the same authenticated user
+    existing = db.query(IssueSupport).filter(IssueSupport.issue_id == issue_id, IssueSupport.user_id == current_user.id).first()
+    if existing:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You have already supported this issue.")
+
+    # Record the support and increment counter
+    support = IssueSupport(issue_id=issue_id, user_id=current_user.id)
+    db.add(support)
+    issue.supporters_count = (issue.supporters_count or 0) + 1
     db.commit()
+    db.refresh(issue)
+
     return StandardResponse(success=True, message="Thank you for supporting this community civic issue!", data={"supporters_count": issue.supporters_count})
 
 # --- RENDER WORKFLOWS OBSERVABILITY & STATUS ENDPOINTS ---

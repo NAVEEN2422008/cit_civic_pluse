@@ -73,6 +73,8 @@ class UserResponse(BaseModel):
     role: str = "CITIZEN"
     account_status: str = "ACTIVE"
     created_at: datetime
+    spam_score: Optional[float] = None
+    abuse_score: Optional[float] = None
 
 class StandardResponse(BaseModel):
     success: bool
@@ -136,11 +138,12 @@ class ResolutionEvidenceRequest(BaseModel):
 
 # Dashboard & Citizen Schemas
 class DashboardSummaryResponse(BaseModel):
-    total_reported: int
-    in_progress: int
-    resolved: int
-    reopened: int
-    recent_issues: List[Dict]
+    active_count: int = 0
+    processing_count: int = 0
+    resolved_count: int = 0
+    reopened_count: int = 0
+    my_complaints: List[Dict] = []
+    public_nearby_issues: List[Dict] = []
 
 class PublicIssueResponse(BaseModel):
     id: str
@@ -156,31 +159,55 @@ class PublicIssueResponse(BaseModel):
     photo_url: Optional[str] = None
 
 class HeatmapPointResponse(BaseModel):
-    id: str
+    id: Optional[str] = None
     category: str
-    lat: float
-    lon: float
-    intensity: float
-    ward: str
-    status: str
+    lat: Optional[float] = None
+    lon: Optional[float] = None
+    intensity: Optional[float] = None
+    ward: Optional[str] = None
+    status: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    density_score: Optional[int] = None
+    location_ward: Optional[str] = None
 
 class TimelineStepResponse(BaseModel):
-    step_number: int
+    step_number: Optional[int] = None
     title: str
-    status: str
+    status: Optional[str] = None
     completed_at: Optional[datetime] = None
-    description: str
+    description: str = ""
+    step_key: Optional[str] = None
+    is_completed: Optional[bool] = None
+    is_current: Optional[bool] = None
 
 class IssueDetailResponse(BaseModel):
     id: str
     original_description: Optional[str] = None
     processed_description: Optional[str] = None
-    category: str
-    severity: str
+    category: Optional[str] = None
+    severity: Optional[str] = None
     status: str
     location_ward: str
     created_at: datetime
-    timeline: List[TimelineStepResponse]
+    timeline: List[TimelineStepResponse] = []
+    offline_submission_id: Optional[str] = None
+    voice_url: Optional[str] = None
+    voice_transcript: Optional[str] = None
+    ai_category: Optional[str] = None
+    ai_issue_type: Optional[str] = None
+    ai_severity: Optional[str] = None
+    ai_confidence: Optional[float] = None
+    ai_review_status: Optional[str] = None
+    is_duplicate: bool = False
+    reports_count: int = 0
+    supporters_count: int = 0
+    media_url: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    sla_days_remaining: Optional[int] = None
+    department: Optional[str] = None
+    timeline_steps: List[TimelineStepResponse] = []
 
 # Issue Schemas
 class IssueCreateRequest(BaseModel):
@@ -222,8 +249,10 @@ class IssueResponse(BaseModel):
     ai_severity: Optional[str] = None
     ai_confidence: Optional[float] = None
     ai_reason: Optional[str] = None
+    ai_review_status: Optional[str] = None
     is_duplicate: bool = False
     duplicate_of_id: Optional[str] = None
+    duplicate_score: Optional[float] = None
     reports_count: int = 1
     supporters_count: int = 1
     resolution_after_photo: Optional[str] = None
@@ -242,3 +271,5 @@ class IssueResponse(BaseModel):
     location_ward: str
     status: str
     created_at: datetime
+    spam_score: Optional[float] = None
+    abuse_score: Optional[float] = None
